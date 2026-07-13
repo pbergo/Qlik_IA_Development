@@ -4,6 +4,6 @@
 
 - [Guia de Integração VS Code com Qlik Cloud](guia-integracao-vscode-qlik-cloud-mcp.md)
 
-- [Project Exampe](./Qlik_IA_Example/README.md)
+- [Project Example](./Qlik_IA_Example/README.md)
 
 
