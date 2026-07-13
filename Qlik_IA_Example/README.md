@@ -30,17 +30,28 @@ The project structure
 ├── Tenant Information tenant-information/
 │   └── tenant-info.md
 |
-├── Connection Information data-connection/
-│   ├── source-da-connection.md
-│   ├── source-di-connection.md
-│   ├── target-di-connection.md
-│   └── storage-da-connection.md
-|
 ├── secrets/ --> Ignored by .gitignore
 │   └── secrets.md
 |
+├── Connection Information data-connection/
+│   ├── da-mysql.md
+│   ├── da-s3.md
+│   ├── di-mysql.md
+│   └── di-s3.md
+|
+├── ModeloDimensional/
+│   └── modelo_dimensional.md
+|
 ├── Source Tables source-tables/
 │   └── VendsaODS-ERD.jpg
+|
+├── scripts/
+│   ├── ext001_cadastros.qvs
+│   ├── ext002_pedidos_peditem.qvs
+│   ├── trf001_silver_vendasods.qvs
+│   ├── trf002_silver_vendas.qvs
+│   ├── trf003_gold_star_schema.qvs
+│   └── viz001_vendasods_analytics.qvs
 |
 ├── README.md
 └── LICENSE
