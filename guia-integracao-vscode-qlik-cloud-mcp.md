@@ -36,7 +36,7 @@ Para instalar o Claude Desktop no Windows, siga este passo a passo rápido:
 - Clique em Adicionar --> Adicionar conector personalizado
 - Entre com o nome para conector, como QlikMCP.
 - Na URL Remota, adicione: https://[tenant URL]/api/ai/mcp.
-    p.ex. https://aditidemo.us.qlikcloud.com
+    p.ex. https://pbergo-qcda.us.qlikcloud.com/api/ai/mcp
 - Em Configurações Avançadas --> OAuth Client ID, informe - 76d3f46e87655a50424bec7e0f0bb1e2.
 - E deixe os outros campos em branco.
 - Clique em adicionar
