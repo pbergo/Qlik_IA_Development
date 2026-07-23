@@ -1,216 +1,104 @@
-# Qlik Data Engineering Example
+# Exemplo de Engenharia de Dados Qlik — VendasODS
 
-## Project Purpose
+## Objetivo do projeto
 
-The project goal is to create a complete and useful data pipeline and data analytics layer in Qlik Cloud, extracting data from a source database, landing it in a medallion architecture, extracting and transforming the data into a dimensional structure stored in parquet format, and then loading everything into a Qlik Analytics application.
+O objetivo do projeto é criar um pipeline de dados completo e útil, além de uma camada de analytics no Qlik Cloud: extrair dados de um banco de dados de origem (Oracle) via CDC, aterrissar em uma arquitetura medalhão (Landing → Bronze → Silver → Gold) armazenada em Parquet no Amazon S3, e carregar tudo em um app de Qlik Analytics — com a cadeia inteira orquestrada por uma Qlik Automation.
 
-## Prerequisites
+## Diagrama de Arquitetura
 
-1. Source database accessible directly or through a gateway
-   1. Using gateway requires one for DI and another one for DA
-1. Cloud storage, e.g., Amazon S3
-1. Qlik Cloud
-   1. Tenant Agent features enabled
-   1. API-Key for user
-   1. 2 Spaces with full access:
-      - Data Space
-      - Shared Space
-   1. 5 connections:
-      - Data Integration connection to source database
-      - Data Integration connection to target storage
-      - Data Analytics connection to source database
-      - Data Analytics connection to cloud storage metadata
-      - Data Analytics connection to cloud storage
+Diagrama de referência completo (camadas, gateway, pontos de controle de qualidade/exposição via Qlik Data Product): [architecture/Medallion Architecture.pdf](<architecture/Medallion%20Architecture.pdf>) (fonte editável: [.drawio](<architecture/Medallion%20Architecture.drawio>) / [.pptx](<architecture/Medallion%20Architecture.pptx>)).
 
-## Project Structure
+![Diagrama de Arquitetura](<architecture/Medallion%20Architecture.png>)
 
-The project structure
+## Diagrama de dados:
 
-```
-./Qlik_IA_Example/
-├── Informações do Tenant tenant-information/
-│   └── tenant-info.md
-|
-├── secrets/ --> Ignored by .gitignore
-│   └── secrets.md
-|
-├── Informações de Conexão data-connection/
-│   ├── da-oracle.md
-│   ├── da-s3.md
-│   ├── di-oracle.md
-│   └── di-s3.md
-|
-├── ModeloDimensional/
-│   └── modelo_dimensional.md
-|
-├── Tabelas de Origem source-tables/
-│   └── VendsaODS-ERD.jpg
-|
-├── data-integration/
-│   └── P01_VendasODS_S3/ --> Contains Data Integration project
-|
-├── automation/
-│   └── VendasODS_Pipeline_Execution.json --> Qlik Automation export that executes the transformation cascade
-|
-├── scripts/
-│   ├── ext001_cadastros.qvs
-│   ├── ext002_pedidos_peditem.qvs
-│   ├── ext003_devolucoes.qvs
-│   ├── str001_bronze_vendasods.qvs
-│   ├── trf001_silver_vendasods.qvs
-│   ├── trf002_silver_devolucoes.qvs
-│   ├── trf003_silver_vendas.qvs
-│   ├── trf004_silver_devolucoes_consolidado.qvs
-│   ├── trf005_gold_star_schema.qvs
-│   └── viz001_vendasods_analytics.qvs
-|
-├── README.md
-└── LICENSE
-```
+- Modelo fonte: [Modelos_Dados/VendasODS-ERD.jpg](Modelos_Dados/VendasODS-ERD.jpg)
+- Modelo dimensional:
+  - Kimball: [Modelos_Dados/modelo_dimensional_kimball.png](Modelos_Dados/modelo_dimensional_kimball.png)
+  - Qlik: [Modelos_Dados/modelo_dimensional_qlik.png](Modelos_Dados/modelo_dimensional_qlik.png)
 
-## Project Files Details
+## Diagrama de Atualização (Automação do Pipeline)
 
-These files contain specifications for project development:
-
-- tenant/tenant-info.md: Contains information to connect to Qlik Cloud tenant
-- data-connections/*.md: Contain information to connect data based on Qlik section and file name connection, like 'di-oracle.md' for data integration connection with Oracle.
-
-## Pipeline Flow Diagram
-
-```mermaid
-
-flowchart TD
-    SourceDB[(Source Database 
-    VendasODS)] --> CDC[/CDC/]
-    CDC --> Landing
-
-    subgraph Layers[ ]
-        direction LR
-        style Layers fill:none,stroke:none
-
-        Landing[Landing Layer] -- Data Ingestion --> Bronze
-        Bronze[Bronze Layer] -- Quality
-        Transformation --> Silver[Silver Layer]
-        Silver -- Star Schema 
-        Transformation --> Gold[Gold Layer]
-        Gold --> DataProduct[Data Product]
-
-        Storage{{Amazon S3}}
-                Landing --> Storage
-                Bronze --> Storage
-                Silver --> Storage
-                Gold --> Storage
-     end
-
-    DataProduct --> Prompt((AI Prompt))
-
-    %% Styles
-    style Bronze fill: #A37500
-    style Silver fill: #BCBEC2
-    style Gold fill: #F0D77B
-    style Storage fill: lightblue
-    style Prompt fill:#ffcccc
-
-```
-
-## Pipeline Execution Automation
-
-The cascading execution of Bronze → Silver → Gold layers is orchestrated by a **Qlik Automation** called `VendasODS_Pipeline_Execution`, in the `VendasODS_Shared` space. The exported definition is versioned in `automation/VendasODS_Pipeline_Execution.json`.
-
-### Scheduling
-
-- Interval: **every 15 minutes** (`RRULE:FREQ=MINUTELY;INTERVAL=15`)
-- Time zone: `America/Sao_Paulo`
-- Execution mode: `scheduled`
-
-### Cascade Logic
-The automation executes reloads in the pipeline dependency order, one `Qlik Cloud Services - Do Reload` block (with "Wait for reload to complete") per app, each followed by a condition block that checks `status = SUCCEEDED`. If any step fails, the cascade is interrupted (error block with `stop` action) and subsequent steps are not executed — avoiding processing Silver/Gold over an incomplete Bronze.
+A execução em cascata das camadas Bronze → Silver → Gold → Analytics é orquestrada por uma **Qlik Automation** chamada `VendasODS_Pipeline_Execution`, agendada a cada **15 minutos**. Cada etapa só dispara se a anterior tiver `status = SUCCEEDED`; se uma etapa falhar, a cascata é interrompida.
 
 ```mermaid
 flowchart TD
-    Start([Scheduled start
-    every 15 min]) --> R1[Reload
+    Start([Início agendado
+    a cada 15 min]) --> R1[Reload
     str001_bronze_vendasods]
-    R1 --> C1{Success?}
-    C1 -- No --> E1[Error: cascade interrupted]
-    C1 -- Yes --> R2[Reload
+    R1 --> R2[Reload
     trf001_silver_vendasods]
-    R2 --> C2{Success?}
-    C2 -- No --> E2[Error: cascade interrupted]
-    C2 -- Yes --> R3[Reload
+    R2 --> R3[Reload
     trf002_silver_devolucoes]
-    R3 --> C3{Success?}
-    C3 -- No --> E3[Error: cascade interrupted]
-    C3 -- Yes --> R4[Reload
+    R3 --> R4[Reload
     trf003_silver_vendas]
-    R4 --> C4{Success?}
-    C4 -- No --> E4[Error: cascade interrupted]
-    C4 -- Yes --> R5[Reload
+    R4 --> R5[Reload
     trf004_silver_devolucoes_consolidado]
-    R5 --> C5{Success?}
-    C5 -- No --> E5[Error: cascade interrupted]
-    C5 -- Yes --> R6[Reload
+    R5 --> R6[Reload
     trf005_gold_star_schema]
-    R6 --> C6{Success?}
-    C6 -- No --> E6[Error: cascade interrupted]
-    C6 -- Yes --> Done([All loads
-    completed successfully])
+    R6 --> R7[Reload
+    viz001_vendasods_analytics]
+    R7 --> Done([Todas as cargas
+    completadas com sucesso])
 ```
 
-## Development Standards
+## Estrutura do projeto
 
-Development standards, such as task names, files and attributes, folder repository and default approaches must follow the standards below:
+```
+./
+├── README.md                          --> Este arquivo
+├── Guia_Implementacao_Novo_Tenant.md  --> Pré-requisitos e ambiente para implantar em um tenant novo
+├── Guia_Instalacao_Projeto.md         --> Passo a passo de instalação (comandos, ordem, validação)
+├── LICENSE
+│
+├── architecture/
+│   ├── Medallion Architecture.pdf     --> Diagrama de arquitetura de referência
+│   ├── Medallion Architecture.drawio
+│   └── Medallion Architecture.pptx
+│
+├── tenant-information/
+│   └── tenant-info.md                 --> Informações para conectar ao tenant Qlik Cloud
+│
+├── secrets/                           --> Deveria estar no .gitignore
+│   └── secrets.env
+│
+├── data-connections/
+│   ├── da-oracle.md                   --> Conexão de Data Analytics com Oracle (legado/alternativa)
+│   ├── da-mysql.md                    --> Conexão de Data Analytics com MySQL (usada pelos scripts ext00x legados)
+│   ├── da-s3.md                       --> Conexão de storage (camadas Bronze/Silver/Gold)
+│   ├── di-oracle.md                   --> Conexão de Data Integration com Oracle (fonte real do CDC)
+│   ├── di-mysql.md                    --> Conexão de Data Integration com MySQL (legado/alternativa)
+│   └── di-s3.md                       --> Conexão de Data Integration com o destino S3 (landing)
+│
+├── data-integration/
+│   └── P01_VendasODS_S3/              --> Projeto de Data Integration exportado (tarefa CDC 'vendasods-susp')
+│
+├── Modelos_Dados/
+│   ├── VendasODS-ERD.jpg
+│   ├── modelo_dimensional_kimball.dot / .png
+│   └── modelo_dimensional_qlik.dot / .png
+│
+├── data-folders/landing/              --> Amostras locais do formato gerado pela tarefa CDC (full load + __ct)
+│
+├── automation/
+│   ├── VendasODS_Pipeline_Execution.json                    --> Exportação da Automation que executa a cascata
+│   └── VendasODS_Pipeline_Execution_Requisitos_Tecnicos.md  --> Requisitos técnicos específicos da Automation
+│
+└── scripts/
+    ├── ext001_cadastros.qvs               --> Legado (não usado no fluxo atual)
+    ├── ext002_pedidos_peditem.qvs         --> Legado (não usado no fluxo atual)
+    ├── ext003_devolucoes.qvs              --> Legado (não usado no fluxo atual)
+    ├── teste.qvs                          --> Script de teste/descoberta do conector S3
+    ├── str001_bronze_vendasods.qvs        --> Bronze (lê da Landing/CDC)
+    ├── trf001_silver_vendasods.qvs        --> Silver
+    ├── trf002_silver_devolucoes.qvs       --> Silver
+    ├── trf003_silver_vendas.qvs           --> Silver
+    ├── trf004_silver_devolucoes_consolidado.qvs --> Silver
+    ├── trf005_gold_star_schema.qvs        --> Gold (star schema)
+    └── viz001_vendasods_analytics.qvs     --> App de análise
+```
 
-1. Qlik Data Analytics Scripts (qvs, qvw, qvf, dfw, etc.):
-   1. Name prefixed by goal
-      1. 'ext' for data extraction,
-      1. 'trf' for data transformation
-      1. 'viz' for data visualization
-      1. 'gen' for generic scripts
-      1. 'str' for storage scripts
-   1. Name suffixed by a numbered action, e.g. 'ext001', 'ext002', 'trf001', 'trf002'
-   1. Description should have a complete explanation with purpose and context involved
-   1. Tagged with goal, like 'Extract', 'Transform', 'Load', 'Generic' and project Goal --> This project goal is 'VendasODS'
-1. Qlik Data Integration Projects
-   1. Name prefixed by 'PRJ' constant
-   1. Name suffixed by a numbered action, e.g. 'prj001', 'prj002'
-   1. Description should have a complete explanation with purpose and context involved
-   1. Tagged with project Goal --> This project goal is 'VendasODS'
-1. Qlik Data Integration Tasks
-   1. Name suffixed by goal
-      1. 'ext' for data extraction,
-      1. 'trf' for data transformation
-      1. 'gen' for generic tasks
-   1. Name suffixed by a numbered action, e.g. 'ext001', 'ext002', 'trf001', 'trf002'
-   1. Description should have a complete explanation with purpose and context involved
-1. Data Connections
-   1. Data connections name should be prefixed by Qlik section, like
-      1. 'da' for Data Analytics
-      1. 'di' for Data Integration
-   1. Suffixed by type
-      1. 'mysql' for MySQL database
-      1. 'oracle' for Oracle database
-      1. 's3' for Amazon S3 database
-      1. 'adls' for Azure Data Lake Storage
-      1. 'sqlsrv' for SQL Server Database
-1. Medallion Architecture
-   1. Landing layer files must be stored in a folder named 'landing'
-      1. Landing is based on sources, so utilize a subfolder with source name: 'vendasods'. If a new source is added, utilize its name as a subfolder name.
-      1. Landing is a transient storage area, then it can be removed any time.
-   1. Bronze layer files must be stored in a folder named 'bronze'
-      1. Bronze is based on sources, so utilize a subfolder with source name: 'vendasods'. If a new source is added, utilize its name as a subfolder name.
-      1. Bronze is a long-time persistent storage area, then all tasks should incrementally add data into it.
-   1. Silver layer files must be stored in a folder named 'silver'
-      1. Subfolder is important to store more than one set of files, resulting from multiple transformations in sequence, then utilize numeric suffix, like silver/silver001, silver/silver002, silver/silver003
-      1. Silver is a long-time persistent storage area, then all tasks should incrementally add data into it.
-   1. Gold layer:
-      1. Files folder must be named 'gold'
-      1. Dimensions prefixed by 'dim_'
-      1. Fact tables prefixed by 'fact_'
-      1. Field names prefix:
-         1. Keys: 'key_'
-         1. Flags: 'flg_' examples: 'flg_cancel', 'flg_deleted'
-         1. Numeric: 'nm_'
-         1. String: 'str_'
-         1. Other ones: 'gen_' from generic usage
-      1. Gold is a long-time persistent storage area, then all tasks should incrementally add data into it.
+## Documentação
+
+- **[Guia_Implementacao_Novo_Tenant.md](Guia_Implementacao_Novo_Tenant.md)** — o que precisa existir antes de instalar: licenciamento do tenant, papéis de usuário, conectividade com a fonte, gateway, bucket S3, ambiente de deploy (Git/`qlik-cli`/MCP), checklist de segredos e riscos conhecidos.
+- **[Guia_Instalacao_Projeto.md](Guia_Instalacao_Projeto.md)** — o passo a passo de instalação em si: comandos, ordem de execução, importação do projeto de Data Integration e da Automation, validação, e os padrões de nomenclatura do projeto.
