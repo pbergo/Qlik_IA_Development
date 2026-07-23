@@ -1,0 +1,209 @@
+///////////////////////////////////////////////////////////////////////////
+// Script: trf004_silver_devolucoes_consolidado
+// Objetivo: Consolidar as tabelas Silver Devolucoes + Devolucao_Item
+//          (silver001, já limpas pelo trf002) numa única tabela
+//          "Devolucoes" desnormalizada, um arquivo Parquet por ano
+//          (Devolucoes_YYYY.parquet), gravado em silver002 - a mesma
+//          camada de entidade consolidada que o trf003 usa para Vendas.
+// Tags: Transform, VendasODS
+// Layer: Silver (materlake/silver/silver002)
+//
+// Ambos silver001 (origem) e silver002 (destino) ficam sob materlake/ -
+//          nem um nem outro ficam mais na raiz do bucket que a versão
+//          antiga deste script usava.
+//
+// Lógica de skip: cada ano aqui só é reconstruído se Devolucoes_YYYY.parquet
+//          ou Devolucao_Item_YYYY.parquet (silver001) realmente mudaram
+//          desde a última vez que ESTE script rodou, rastreado por um
+//          checkpoint próprio (materlake/silver/silver002/_checkpoint_trf004.parquet,
+//          guardando o maior _change_timestamp já consumido) comparado
+//          contra o Max(_change_timestamp) lido de Devolucoes_YYYY/
+//          Devolucao_Item_YYYY. _change_timestamp se origina no Bronze
+//          (str001) e é carregada adiante pelo trf002 - não é gravada em
+//          Devolucoes_YYYY.parquet, só usada aqui como critério de decisão.
+//          Isso substitui a janela fixa de "últimos N dias" sobre
+//          Data_Devolucao que este script usava antes (a mesma janela que
+//          o ext003 usava pra extrair do MySQL) - essa janela não cobre
+//          uma mudança CDC numa devolução antiga, que passaria
+//          despercebida. Se Devolucoes_YYYY.parquet ainda não existe pra
+//          um ano, ele é sempre (re)construído independente do checkpoint.
+//
+// Descoberta de arquivo (materlake/): o conector S3 V2 desse tenant não
+//          suporta carga via wildcard, e ErrorMode=0 não suprime "arquivo
+//          não encontrado" para um caminho literal sob materlake/
+//          (confirmado em teste ao vivo durante a construção do str001) -
+//          então toda checagem de existência passa pelo mesmo mecanismo
+//          'da-s3-metadata' (ListObjects, prefix='' + filtragem exata do
+//          lado do cliente) que o str001 usa, em vez do probe clássico
+//          ProbeFileExists (que funcionava na raiz antiga, mas não sob
+//          materlake/).
+///////////////////////////////////////////////////////////////////////////
+
+SET vSourceName = 'vendasods';
+SET vS3Root = 'lib://VendasODS_Shared:da-s3/';
+SET vSilverKeyPrefix = 'materlake/silver/silver001/';
+SET vSilverPath = '$(vS3Root)$(vSilverKeyPrefix)';
+SET vDevolucoesKeyPrefix = 'materlake/silver/silver002/';
+SET vDevolucoesPath = '$(vS3Root)$(vDevolucoesKeyPrefix)';
+LET vMinYear = Year(Today()) - 10;
+LET vMaxYear = Year(Today());
+
+// ---------------------------------------------------------------------
+// Descoberta de arquivo (materlake/) - mesmo padrão do
+// str001_bronze_vendasods: lista o bucket inteiro uma vez com prefix=''
+// via 'da-s3-metadata', mantém em memória, filtra do lado do cliente.
+// ---------------------------------------------------------------------
+LIB CONNECT TO 'VendasODS_Shared:da-s3-metadata';
+
+AllObjects:
+LOAD Key as ObjKey;
+SELECT Key
+FROM ListObjects
+WITH PROPERTIES (
+prefix='',
+maxResults=''
+);
+
+SUB CheckKeyExists(vKey)
+    KeyMatch:
+    NOCONCATENATE
+    LOAD ObjKey
+    RESIDENT AllObjects
+    WHERE ObjKey = '$(vKey)';
+    LET vKeyExists = If(NoOfRows('KeyMatch') > 0, 1, 0);
+    DROP TABLE KeyMatch;
+END SUB
+
+// ---------------------------------------------------------------------
+// Checkpoint próprio deste script: maior _change_timestamp (silver001) já
+// consumido.
+// ---------------------------------------------------------------------
+LET vCheckpointKey = '$(vDevolucoesKeyPrefix)_checkpoint_trf004.parquet';
+LET vCheckpointFile = '$(vS3Root)$(vCheckpointKey)';
+CALL CheckKeyExists('$(vCheckpointKey)');
+IF vKeyExists > 0 THEN
+    CheckpointRead:
+    NOCONCATENATE
+    LOAD LastSilverTs
+    FROM [$(vCheckpointFile)] (parquet);
+    LET vTrfCheckpoint = Peek('LastSilverTs', 0, 'CheckpointRead');
+    DROP TABLE CheckpointRead;
+ELSE
+    LET vTrfCheckpoint = 0;
+ENDIF
+
+LET vNewTrfCheckpoint = vTrfCheckpoint;
+
+// ---------------------------------------------------------------------
+// 1. Para cada ano, decide se precisa reconstruir e, se sim, monta
+//    Devolucoes_YYYY.parquet a partir de Devolucao_Item_YYYY + Devolucoes_YYYY
+// ---------------------------------------------------------------------
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vDevolucoesKey = '$(vSilverKeyPrefix)Devolucoes_$(vYear).parquet';
+    LET vDevolucaoItemKey = '$(vSilverKeyPrefix)Devolucao_Item_$(vYear).parquet';
+    LET vDevolucoesFile = '$(vS3Root)$(vDevolucoesKey)';
+    LET vDevolucaoItemFile = '$(vS3Root)$(vDevolucaoItemKey)';
+    LET vTargetKey = '$(vDevolucoesKeyPrefix)Devolucoes_$(vYear).parquet';
+    LET vTargetFile = '$(vS3Root)$(vTargetKey)';
+
+    CALL CheckKeyExists('$(vDevolucoesKey)');
+
+    IF vKeyExists = 0 THEN
+
+        LET vNeedsRebuild = 0;
+
+    ELSE
+
+        MaxTsDev:
+        NOCONCATENATE
+        LOAD Max(_change_timestamp) as MaxTs
+        FROM [$(vDevolucoesFile)] (parquet);
+        LET vYearMaxTs = Peek('MaxTs', 0, 'MaxTsDev');
+        DROP TABLE MaxTsDev;
+
+        CALL CheckKeyExists('$(vDevolucaoItemKey)');
+        IF vKeyExists > 0 THEN
+
+            MaxTsItem:
+            NOCONCATENATE
+            LOAD Max(_change_timestamp) as MaxTs
+            FROM [$(vDevolucaoItemFile)] (parquet);
+            LET vItemMaxTs = Peek('MaxTs', 0, 'MaxTsItem');
+            DROP TABLE MaxTsItem;
+
+            IF Not IsNull(vItemMaxTs) And (IsNull(vYearMaxTs) Or vItemMaxTs > vYearMaxTs) THEN
+                LET vYearMaxTs = vItemMaxTs;
+            ENDIF
+
+        ENDIF
+
+        IF Not IsNull(vYearMaxTs) And vYearMaxTs > vNewTrfCheckpoint THEN
+            LET vNewTrfCheckpoint = vYearMaxTs;
+        ENDIF
+
+        CALL CheckKeyExists('$(vTargetKey)');
+        IF vKeyExists = 0 THEN
+            LET vNeedsRebuild = 1;
+        ELSEIF IsNull(vYearMaxTs) THEN
+            LET vNeedsRebuild = 0;
+        ELSE
+            LET vNeedsRebuild = If(vYearMaxTs > vTrfCheckpoint, 1, 0);
+        ENDIF
+
+    ENDIF
+
+    IF vNeedsRebuild = 1 THEN
+
+        TRACE Construindo Devolucoes para o ano $(vYear);
+
+        Devolucoes_Y:
+        NOCONCATENATE
+        LOAD
+            Devolucao_Item_ID,
+            Devolucao_ID,
+            PedItem_ID,
+            Produto_ID,
+            Qtde_Devolvida,
+            PrecoUN_Venda,
+            Valor_Devolucao
+        FROM [$(vDevolucaoItemFile)]
+        (parquet);
+
+        Left Join (Devolucoes_Y)
+        LOAD
+            Devolucao_ID,
+            Pedido_ID,
+            Data_Devolucao,
+            Observacao
+        FROM [$(vDevolucoesFile)]
+        (parquet);
+
+        STORE Devolucoes_Y INTO [$(vTargetFile)] (parquet);
+
+        DROP TABLE Devolucoes_Y;
+
+    ELSE
+
+        TRACE Sem mudanças para Devolucoes ano $(vYear), pulando;
+
+    ENDIF
+
+NEXT vYear
+
+// ---------------------------------------------------------------------
+// Salva o novo checkpoint deste script.
+// ---------------------------------------------------------------------
+CheckpointOut:
+NOCONCATENATE
+LOAD
+    $(vNewTrfCheckpoint) as LastSilverTs,
+    Now() as UpdatedAt
+AUTOGENERATE 1;
+
+STORE CheckpointOut INTO [$(vCheckpointFile)] (parquet);
+
+DROP TABLE CheckpointOut;
+DROP TABLE AllObjects;
+
+TRACE trf004_silver_devolucoes_consolidado concluído;

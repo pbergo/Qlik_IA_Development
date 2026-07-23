@@ -1,0 +1,68 @@
+properties:
+  id: tabpreco
+  name: TabPreco
+  type: LANDING
+  inputDatasets:
+    - type: TABLE
+      name: TabPreco
+      projectId: '{{ref(project.current.projectId)}}'
+      taskId: vendasods-susp
+      schema: '{{task.vendasods-susp:null$_$VENDASODS.schema}}'
+  virtualDataset: false
+  description: ''
+sourceTable:
+  schema: '{{task.vendasods-susp:null$_$VENDASODS.schema}}'
+  type: TABLE
+  name: TabPreco
+  tableDef:
+    columns:
+      - name: Produto_ID
+        ordinal: 1
+        nullable: false
+        primaryKeyOrdinal: 1
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: produto_id
+        flags: NONE
+      - name: Periodo
+        ordinal: 2
+        nullable: false
+        primaryKeyOrdinal: 2
+        datatype:
+          type: DATETIME
+          length: 0
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: periodo
+        flags: NONE
+      - name: PrecoUN_Venda
+        ordinal: 3
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: REAL8
+          length: 0
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: precoun_venda
+        flags: NONE
+      - name: PrecoUN_Custo
+        ordinal: 4
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: REAL8
+          length: 0
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: precoun_custo
+        flags: NONE
+    secureQri: ''
+    fullLoadOnly: false

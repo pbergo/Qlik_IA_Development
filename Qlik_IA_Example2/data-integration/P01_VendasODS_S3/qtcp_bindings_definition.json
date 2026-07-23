@@ -1,0 +1,20 @@
+{
+  "variables": {
+    "cloudStagingConnection": "",
+    "platformConnection": "",
+    "projectName": "",
+    "task.vendasods-susp.folder": "",
+    "task.vendasods-susp.sourceConnection": "",
+    "task.vendasods-susp.targetConnection": "",
+    "task.vendasods-susp:null$_$VENDASODS.schema": "",
+    "task.vendasods-susp:null$_$VENDASODS.schemaPattern": ""
+  },
+  "connectionProperties": {
+    "task.vendasods-susp.sourceConnection": {
+      "type": "repsrc_oracle"
+    },
+    "task.vendasods-susp.targetConnection": {
+      "type": "reptgt_qdis3"
+    }
+  }
+}

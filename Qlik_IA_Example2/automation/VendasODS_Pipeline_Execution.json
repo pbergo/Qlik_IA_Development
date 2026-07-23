@@ -1,0 +1,1312 @@
+{
+  "id": "eb5be3eb-5605-4cf5-ac93-1fac80830470",
+  "ownerId": "6a4812b1dd31bf428a7e245b",
+  "name": "VendasODS_Pipeline_Execution",
+  "spaceId": "681f830ee2e164faaaff97d0",
+  "state": "available",
+  "description": "Executa em cascata a transformacao Bronze->Silver->Gold do VendasODS: str001, trf001, trf002, trf003, trf004, trf005. Cada etapa so roda se a anterior tiver sucesso.",
+  "schedules": [
+    {
+      "id": "37a6212e-add5-4f13-b924-c2a350317d7c",
+      "startAt": "2026-07-16 14:30:10",
+      "stopAt": null,
+      "lastStartAt": null,
+      "timezone": "America\/Sao_Paulo",
+      "nextRunAt": "2026-07-16T17:30:10.000000Z",
+      "interval": -2,
+      "recurrence": "RRULE:FREQ=MINUTELY;INTERVAL=15"
+    }
+  ],
+  "snippetIds": [
+    "b5dbb7a0-e715-11ea-b2bf-43bb35adee19"
+  ],
+  "endpointIds": [],
+  "connectorIds": [
+    "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+  ],
+  "workspace": {
+    "blocks": [
+      {
+        "x": 100,
+        "y": 100,
+        "id": "7F841AFD-6B6B-4279-BE58-4F90A0EAB0E4",
+        "name": "Start",
+        "type": "StartBlock",
+        "inputs": [
+          {
+            "id": "run_mode",
+            "type": "select",
+            "value": "scheduled",
+            "structure": []
+          },
+          {
+            "id": "schedule_start",
+            "type": "date",
+            "value": "2026-07-16 14:30:10",
+            "structure": []
+          },
+          {
+            "id": "schedule_stoptime",
+            "type": "date",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "schedule_interval",
+            "type": "select",
+            "value": "900",
+            "structure": [],
+            "displayValue": "15 Minutes"
+          },
+          {
+            "id": "schedule_timezone",
+            "type": "select",
+            "value": "America\/Sao_Paulo",
+            "structure": []
+          }
+        ],
+        "childId": "54922E16-4453-43E1-8FFC-001BD5D089F2",
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Start"
+      },
+      {
+        "x": 100,
+        "y": 220,
+        "id": "54922E16-4453-43E1-8FFC-001BD5D089F2",
+        "name": "DoReload",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "type": "string",
+            "value": "698a0ca1-87e9-4d62-9c77-9316dce35a74",
+            "structure": [],
+            "displayValue": "str001_bronze_vendasods (698a0ca1-87e9-4d62-9c77-9316dce35a74)"
+          },
+          {
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "structure": [],
+            "displayValue": "Wait for reload to complete"
+          },
+          {
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "mode": "keyValue",
+            "type": "object",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "type": "select",
+            "value": "Yes",
+            "structure": [],
+            "displayValue": "Yes"
+          }
+        ],
+        "childId": "9AE59F9C-B5AF-43FA-82C1-96347ED6C51C",
+        "comment": "Start a reload and wait for it to complete.\nThis block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "blendr_on_error",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          },
+          {
+            "id": "automations_censor_data",
+            "type": "checkbox",
+            "value": false,
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 220,
+        "y": 420,
+        "id": "18818003-0287-4526-95E2-8844305D8C01",
+        "name": "DoReload2",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "type": "string",
+            "value": "ce097cdb-59c2-4ca3-9c40-0f091be1436f",
+            "structure": [],
+            "displayValue": "trf001_silver_vendasods (ce097cdb-59c2-4ca3-9c40-0f091be1436f)"
+          },
+          {
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "structure": [],
+            "displayValue": "Wait for reload to complete"
+          },
+          {
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "mode": "keyValue",
+            "type": "object",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "type": "select",
+            "value": "Yes",
+            "structure": [],
+            "displayValue": "Yes"
+          }
+        ],
+        "childId": "1E88EAC1-B8D9-4717-9DDD-EA3B55035BAA",
+        "comment": "Reload the second app.\nThis block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "blendr_on_error",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          },
+          {
+            "id": "automations_censor_data",
+            "type": "checkbox",
+            "value": false,
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload 2",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 100,
+        "y": 340,
+        "id": "9AE59F9C-B5AF-43FA-82C1-96347ED6C51C",
+        "name": "condition",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "id": "conditions",
+            "type": "custom",
+            "value": {
+              "mode": "all",
+              "conditions": [
+                {
+                  "input1": "{$.DoReload.status}",
+                  "input2": "SUCCEEDED",
+                  "operator": "="
+                }
+              ]
+            },
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "yes",
+            "isCollapsed": false
+          },
+          {
+            "name": "no",
+            "isCollapsed": false
+          }
+        ],
+        "childTrueId": "18818003-0287-4526-95E2-8844305D8C01",
+        "displayName": "Condition",
+        "childFalseId": "940E6223-2551-411C-B90C-D983458C1FF6"
+      },
+      {
+        "x": 220,
+        "y": 3380,
+        "id": "940E6223-2551-411C-B90C-D983458C1FF6",
+        "name": "output",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "id": "input",
+            "type": "string",
+            "value": "First reload { $.DoReload.status }",
+            "structure": []
+          }
+        ],
+        "childId": "9C3EEF64-5111-4904-A328-DFD723F1F3C3",
+        "comment": "Reload status of the first app - This block can be replaced by any communication connector, such as Email, Slack, Microsoft Teams. ",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "display_mode",
+            "type": "select",
+            "value": "add",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Output"
+      },
+      {
+        "x": 220,
+        "y": 540,
+        "id": "1E88EAC1-B8D9-4717-9DDD-EA3B55035BAA",
+        "name": "condition2",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "id": "conditions",
+            "type": "custom",
+            "value": {
+              "mode": "all",
+              "conditions": [
+                {
+                  "input1": "{ $.DoReload2.status }",
+                  "input2": "SUCCEEDED",
+                  "operator": "="
+                }
+              ]
+            },
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "yes",
+            "isCollapsed": false
+          },
+          {
+            "name": "no",
+            "isCollapsed": false
+          }
+        ],
+        "childTrueId": "DA1BA2B0-3C6E-4118-9611-291780A5EC6A",
+        "displayName": "Condition 2",
+        "childFalseId": "2421806B-32E8-499C-AA7C-D5DCF3317527"
+      },
+      {
+        "x": 340,
+        "y": 620,
+        "id": "DA1BA2B0-3C6E-4118-9611-291780A5EC6A",
+        "name": "DoReload3",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "type": "string",
+            "value": "3e7ffeff-93b6-4408-b474-93144499d145",
+            "structure": [],
+            "displayValue": "trf002_silver_devolucoes (3e7ffeff-93b6-4408-b474-93144499d145)"
+          },
+          {
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "structure": [],
+            "displayValue": "Wait for reload to complete"
+          },
+          {
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "mode": "keyValue",
+            "type": "object",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "type": "select",
+            "value": "Yes",
+            "structure": [],
+            "displayValue": "Yes"
+          }
+        ],
+        "childId": "D2F1C101-90CB-420F-9B1D-A6AB971DA5F3",
+        "comment": "Reload the second app.\nThis block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "blendr_on_error",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          },
+          {
+            "id": "automations_censor_data",
+            "type": "checkbox",
+            "value": false,
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload 3",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 340,
+        "y": 740,
+        "id": "D2F1C101-90CB-420F-9B1D-A6AB971DA5F3",
+        "name": "condition3",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "id": "conditions",
+            "type": "custom",
+            "value": {
+              "mode": "all",
+              "conditions": [
+                {
+                  "input1": "{ $.DoReload3.status }",
+                  "input2": "SUCCEEDED",
+                  "operator": "="
+                }
+              ]
+            },
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "yes",
+            "isCollapsed": false
+          },
+          {
+            "name": "no",
+            "isCollapsed": false
+          }
+        ],
+        "childTrueId": "62BAD022-F1B7-42B2-98E8-F493171059E6",
+        "displayName": "Condition 3",
+        "childFalseId": "0EF1CE34-A35C-4147-AF2B-072AC6ABB86D"
+      },
+      {
+        "x": 460,
+        "y": 820,
+        "id": "62BAD022-F1B7-42B2-98E8-F493171059E6",
+        "name": "DoReload4",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "type": "string",
+            "value": "f83da235-4933-4bfc-9648-f0882c904845",
+            "structure": [],
+            "displayValue": "trf003_silver_vendas (f83da235-4933-4bfc-9648-f0882c904845)"
+          },
+          {
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "structure": [],
+            "displayValue": "Wait for reload to complete"
+          },
+          {
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "mode": "keyValue",
+            "type": "object",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "type": "select",
+            "value": "Yes",
+            "structure": [],
+            "displayValue": "Yes"
+          }
+        ],
+        "childId": "029317FE-A1F7-45AE-9F6B-B4696ACA5CEB",
+        "comment": "Reload the second app.\nThis block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "blendr_on_error",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          },
+          {
+            "id": "automations_censor_data",
+            "type": "checkbox",
+            "value": false,
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload 4",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 460,
+        "y": 940,
+        "id": "029317FE-A1F7-45AE-9F6B-B4696ACA5CEB",
+        "name": "condition4",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "id": "conditions",
+            "type": "custom",
+            "value": {
+              "mode": "all",
+              "conditions": [
+                {
+                  "input1": "{ $.DoReload4.status }",
+                  "input2": "SUCCEEDED",
+                  "operator": "="
+                }
+              ]
+            },
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "yes",
+            "isCollapsed": false
+          },
+          {
+            "name": "no",
+            "isCollapsed": false
+          }
+        ],
+        "childTrueId": "F3393BFD-96A4-490F-8C82-EF7959A7248E",
+        "displayName": "Condition 4",
+        "childFalseId": "EDC93338-842C-424B-855C-CF2BE3D51E11"
+      },
+      {
+        "x": 580,
+        "y": 1020,
+        "id": "F3393BFD-96A4-490F-8C82-EF7959A7248E",
+        "name": "DoReload5",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "type": "string",
+            "value": "35a3c2c1-0476-418a-94b1-0a734d4bc8dd",
+            "structure": [],
+            "displayValue": "trf004_silver_devolucoes_consolidado (35a3c2c1-0476-418a-94b1-0a734d4bc8dd)"
+          },
+          {
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "structure": [],
+            "displayValue": "Wait for reload to complete"
+          },
+          {
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "mode": "keyValue",
+            "type": "object",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "type": "select",
+            "value": "Yes",
+            "structure": [],
+            "displayValue": "Yes"
+          }
+        ],
+        "childId": "CF276799-3670-46CF-BEC7-85C7209133B9",
+        "comment": "Reload the second app.\nThis block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "blendr_on_error",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          },
+          {
+            "id": "automations_censor_data",
+            "type": "checkbox",
+            "value": false,
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload 5",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 580,
+        "y": 1140,
+        "id": "CF276799-3670-46CF-BEC7-85C7209133B9",
+        "name": "condition5",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "id": "conditions",
+            "type": "custom",
+            "value": {
+              "mode": "all",
+              "conditions": [
+                {
+                  "input1": "{ $.DoReload5.status }",
+                  "input2": "SUCCEEDED",
+                  "operator": "="
+                }
+              ]
+            },
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "yes",
+            "isCollapsed": false
+          },
+          {
+            "name": "no",
+            "isCollapsed": false
+          }
+        ],
+        "childTrueId": "BAB016E9-AB9A-43C3-AC32-D1A22E8A3E32",
+        "displayName": "Condition 5",
+        "childFalseId": "E0EDC8D5-2ACA-401F-9E18-52D717F6F399"
+      },
+      {
+        "x": 700,
+        "y": 1220,
+        "id": "BAB016E9-AB9A-43C3-AC32-D1A22E8A3E32",
+        "name": "DoReload6",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "type": "string",
+            "value": "75f2b721-8fe1-4100-a766-a228b45db0fb",
+            "structure": [],
+            "displayValue": "trf005_gold_star_schema (75f2b721-8fe1-4100-a766-a228b45db0fb)"
+          },
+          {
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "structure": [],
+            "displayValue": "Wait for reload to complete"
+          },
+          {
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "type": "select",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "mode": "keyValue",
+            "type": "object",
+            "value": null,
+            "structure": []
+          },
+          {
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "type": "select",
+            "value": "Yes",
+            "structure": [],
+            "displayValue": "Yes"
+          }
+        ],
+        "childId": "67C9190C-9223-4558-8D68-31D10C2B4E87",
+        "comment": "Reload the second app.\nThis block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "blendr_on_error",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          },
+          {
+            "id": "automations_censor_data",
+            "type": "checkbox",
+            "value": false,
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload 6",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 820,
+        "y": 1580,
+        "id": "21589A07-6E31-4909-846A-867DA5E72865",
+        "name": "output2",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "id": "input",
+            "type": "string",
+            "value": "First reload{ $.DoReload6.status }",
+            "structure": []
+          }
+        ],
+        "childId": "9FC9F60E-9E13-4DA2-A076-0A53A933B99B",
+        "comment": "Reload status of the first app - This block can be replaced by any communication connector, such as Email, Slack, Microsoft Teams. ",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "display_mode",
+            "type": "select",
+            "value": "add",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Output 2"
+      },
+      {
+        "x": 700,
+        "y": 1940,
+        "id": "E0EDC8D5-2ACA-401F-9E18-52D717F6F399",
+        "name": "output3",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "id": "input",
+            "type": "string",
+            "value": "First reload{ $.DoReload5.status }",
+            "structure": []
+          }
+        ],
+        "childId": "9B36D12C-F462-4523-B228-BFA10C577092",
+        "comment": "Reload status of the first app - This block can be replaced by any communication connector, such as Email, Slack, Microsoft Teams. ",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "display_mode",
+            "type": "select",
+            "value": "add",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Output 3"
+      },
+      {
+        "x": 580,
+        "y": 2300,
+        "id": "EDC93338-842C-424B-855C-CF2BE3D51E11",
+        "name": "output4",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "id": "input",
+            "type": "string",
+            "value": "First reload{ $.DoReload4.status }",
+            "structure": []
+          }
+        ],
+        "childId": "5B9D2EA5-DEED-47BC-AACA-6F737B63133B",
+        "comment": "Reload status of the first app - This block can be replaced by any communication connector, such as Email, Slack, Microsoft Teams. ",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "display_mode",
+            "type": "select",
+            "value": "add",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Output 4"
+      },
+      {
+        "x": 460,
+        "y": 2660,
+        "id": "0EF1CE34-A35C-4147-AF2B-072AC6ABB86D",
+        "name": "output5",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "id": "input",
+            "type": "string",
+            "value": "First reload{ $.DoReload3.status }",
+            "structure": []
+          }
+        ],
+        "childId": "0C7FA4BA-F6C8-4607-B39B-C93A92FBC279",
+        "comment": "Reload status of the first app - This block can be replaced by any communication connector, such as Email, Slack, Microsoft Teams. ",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "display_mode",
+            "type": "select",
+            "value": "add",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Output 5"
+      },
+      {
+        "x": 340,
+        "y": 3020,
+        "id": "2421806B-32E8-499C-AA7C-D5DCF3317527",
+        "name": "output6",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "id": "input",
+            "type": "string",
+            "value": "First reload{ $.DoReload2.status }",
+            "structure": []
+          }
+        ],
+        "childId": "E5F9DA31-95F3-49ED-85E0-0C7CB8B2FD66",
+        "comment": "Reload status of the first app - This block can be replaced by any communication connector, such as Email, Slack, Microsoft Teams. ",
+        "disabled": false,
+        "settings": [
+          {
+            "id": "display_mode",
+            "type": "select",
+            "value": "add",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Output 6"
+      },
+      {
+        "x": 340,
+        "y": 3140,
+        "id": "E5F9DA31-95F3-49ED-85E0-0C7CB8B2FD66",
+        "name": "error",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "id": "message",
+            "type": "string",
+            "value": "Tarefa terminou com erros",
+            "structure": []
+          },
+          {
+            "id": "action",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Error"
+      },
+      {
+        "x": 460,
+        "y": 2780,
+        "id": "0C7FA4BA-F6C8-4607-B39B-C93A92FBC279",
+        "name": "error2",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "id": "message",
+            "type": "string",
+            "value": "Tarefa terminou com erros",
+            "structure": []
+          },
+          {
+            "id": "action",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Error 2"
+      },
+      {
+        "x": 580,
+        "y": 2420,
+        "id": "5B9D2EA5-DEED-47BC-AACA-6F737B63133B",
+        "name": "error3",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "id": "message",
+            "type": "string",
+            "value": "Tarefa terminou com erros",
+            "structure": []
+          },
+          {
+            "id": "action",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Error 3"
+      },
+      {
+        "x": 700,
+        "y": 2060,
+        "id": "9B36D12C-F462-4523-B228-BFA10C577092",
+        "name": "error4",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "id": "message",
+            "type": "string",
+            "value": "Tarefa terminou com erros",
+            "structure": []
+          },
+          {
+            "id": "action",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Error 4"
+      },
+      {
+        "x": 820,
+        "y": 1700,
+        "id": "9FC9F60E-9E13-4DA2-A076-0A53A933B99B",
+        "name": "error5",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "id": "message",
+            "type": "string",
+            "value": "Tarefa terminou com erros",
+            "structure": []
+          },
+          {
+            "id": "action",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Error 5"
+      },
+      {
+        "x": 700,
+        "y": 1340,
+        "id": "67C9190C-9223-4558-8D68-31D10C2B4E87",
+        "name": "condition6",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "id": "conditions",
+            "type": "custom",
+            "value": {
+              "mode": "all",
+              "conditions": [
+                {
+                  "input1": "{ $.DoReload5.status }",
+                  "input2": "SUCCEEDED",
+                  "operator": "="
+                }
+              ]
+            },
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "yes",
+            "isCollapsed": false
+          },
+          {
+            "name": "no",
+            "isCollapsed": false
+          }
+        ],
+        "childTrueId": "82974D96-1371-44F9-B694-26B723FAB4F7",
+        "displayName": "Condition 6",
+        "childFalseId": "21589A07-6E31-4909-846A-867DA5E72865"
+      },
+      {
+        "x": 820,
+        "y": 1420,
+        "id": "82974D96-1371-44F9-B694-26B723FAB4F7",
+        "name": "output7",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "id": "input",
+            "type": "string",
+            "value": "Todas as cargas foram completadas com sucesso",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [
+          {
+            "id": "display_mode",
+            "type": "select",
+            "value": "add",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Output 7"
+      },
+      {
+        "x": 220,
+        "y": 3500,
+        "id": "9C3EEF64-5111-4904-A328-DFD723F1F3C3",
+        "name": "error6",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "id": "message",
+            "type": "string",
+            "value": "Tarefa terminou com erros",
+            "structure": []
+          },
+          {
+            "id": "action",
+            "type": "select",
+            "value": "stop",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "name": "loop",
+            "isCollapsed": false
+          }
+        ],
+        "displayName": "Error 6"
+      }
+    ],
+    "variables": []
+  },
+  "lastRun": {
+    "id": "f229fc25-861c-4311-b5d4-1ab62bfd83c7",
+    "spaceId": "681f830ee2e164faaaff97d0",
+    "ownerId": "6a4812b1dd31bf428a7e245b",
+    "executedById": "6a4812b1dd31bf428a7e245b",
+    "context": "editor",
+    "status": "finished",
+    "title": null,
+    "testRun": false,
+    "isTestRun": false,
+    "archived": true,
+    "isArchived": true,
+    "error": null,
+    "startTime": "2026-07-16T16:33:01.000000Z",
+    "stopTime": "2026-07-16T16:38:38.000000Z",
+    "scheduledStartTime": null,
+    "createdAt": "2026-07-16T16:32:57.000000Z",
+    "updatedAt": "2026-07-16T16:38:38.000000Z",
+    "expectedInputs": null,
+    "inputs": null,
+    "metrics": {
+      "blocks": [
+        {
+          "type": "baseBlock",
+          "rxBytes": 0,
+          "txBytes": 0,
+          "duration": 60000,
+          "blockName": "SleepBlock",
+          "params": []
+        },
+        {
+          "type": "snippetBlock",
+          "rxBytes": 457279,
+          "txBytes": 407094,
+          "duration": 31143,
+          "connectorId": "61a87510-c7a3-11ea-95da-0fb0c241e75c",
+          "snippetId": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19"
+        },
+        {
+          "type": "endpointBlock",
+          "rxBytes": 7317,
+          "txBytes": 8892,
+          "duration": 187,
+          "connectorId": "61a87510-c7a3-11ea-95da-0fb0c241e75c",
+          "endpointId": "5803a7c0-e713-11ea-8e3c-8fa0d845db42",
+          "apiCalls": 6
+        },
+        {
+          "type": "endpointBlock",
+          "rxBytes": 49071,
+          "txBytes": 54964,
+          "duration": 148,
+          "connectorId": "61a87510-c7a3-11ea-95da-0fb0c241e75c",
+          "endpointId": "72bd62c0-e712-11ea-a93e-9f69c294c322",
+          "apiCalls": 34
+        }
+      ],
+      "network": {
+        "rxBytes": 465927,
+        "txBytes": 433638
+      },
+      "totalApiCalls": 40
+    },
+    "billable": false
+  },
+  "lastRunStatus": "finished",
+  "runMode": "scheduled",
+  "createdAt": "2026-07-16T16:17:10.000000Z",
+  "updatedAt": "2026-07-16T17:02:44.000000Z",
+  "lastRunAt": "2026-07-16T16:38:38.000000Z",
+  "containsBillable": false,
+  "timeout": null,
+  "executionToken": "cVmxohfkxqBqbBRaRLDgbxDATeFe7lRh0rRIHKo2UxVKSfnGFaMMqOGMTil8JtXW",
+  "maxConcurrentRuns": 1
+}

@@ -1,0 +1,128 @@
+properties:
+  id: pedidos
+  name: Pedidos
+  type: LANDING
+  inputDatasets:
+    - type: TABLE
+      name: Pedidos
+      projectId: '{{ref(project.current.projectId)}}'
+      taskId: vendasods-susp
+      schema: '{{task.vendasods-susp:null$_$VENDASODS.schema}}'
+  virtualDataset: false
+  description: ''
+sourceTable:
+  schema: '{{task.vendasods-susp:null$_$VENDASODS.schema}}'
+  type: TABLE
+  name: Pedidos
+  tableDef:
+    columns:
+      - name: Pedido_ID
+        ordinal: 1
+        nullable: false
+        primaryKeyOrdinal: 1
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: pedido_id
+        flags: NONE
+      - name: Cliente_ID
+        ordinal: 2
+        nullable: false
+        primaryKeyOrdinal: 0
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: cliente_id
+        flags: NONE
+      - name: Vendedor_ID
+        ordinal: 3
+        nullable: false
+        primaryKeyOrdinal: 0
+        datatype:
+          type: WSTRING
+          length: 255
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: vendedor_id
+        flags: NONE
+      - name: Data_Venda
+        ordinal: 4
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: DATETIME
+          length: 0
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: data_venda
+        flags: NONE
+      - name: Meta_ID
+        ordinal: 5
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: WSTRING
+          length: 10
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: meta_id
+        flags: NONE
+      - name: Perc_Frete
+        ordinal: 6
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: REAL8
+          length: 0
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: perc_frete
+        flags: NONE
+      - name: Cancelado
+        ordinal: 7
+        nullable: false
+        primaryKeyOrdinal: 0
+        datatype:
+          type: INT2
+          length: 0
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: cancelado
+        flags: NONE
+      - name: Data_Remessa
+        ordinal: 8
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: DATETIME
+          length: 0
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: data_remessa
+        flags: NONE
+      - name: Periodo
+        ordinal: 9
+        nullable: false
+        primaryKeyOrdinal: 0
+        datatype:
+          type: DATETIME
+          length: 0
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: periodo
+        flags: NONE
+    secureQri: ''
+    fullLoadOnly: false

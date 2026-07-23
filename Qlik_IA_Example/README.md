@@ -62,6 +62,7 @@ The project structure
 These files contains de specification for project development
 - tenant/tenant-info.md: Contains information to connect to Qlik Cloud tenant
 - data-connections/*.md: Contain information to connect data based on Qlik section and file name connection, like 'di-mysql.md' for data integration connection with MySQL.
+- secrets/secrets.env: esse arquivo contém as variáveis de ambiente, contendo senhas e chaves de api. Atenção: Colocar *.env dentro do .gitignore para evitar exposição.
 
 ## Pipeline Flow Diagram
 

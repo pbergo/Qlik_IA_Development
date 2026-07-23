@@ -1,0 +1,7 @@
+sourceConnection: '{{task.vendasods-susp.sourceConnection}}'
+includePatterns:
+  - tablePattern: '%'
+    schemaPattern: '{{task.vendasods-susp:null$_$VENDASODS.schemaPattern}}'
+    type: TABLE
+excludePatterns: []
+explicitlySelected: []

@@ -1,0 +1,104 @@
+properties:
+  id: devolucao_item
+  name: Devolucao_Item
+  type: LANDING
+  inputDatasets:
+    - type: TABLE
+      name: Devolucao_Item
+      projectId: '{{ref(project.current.projectId)}}'
+      taskId: vendasods-susp
+      schema: '{{task.vendasods-susp:null$_$VENDASODS.schema}}'
+  virtualDataset: false
+  description: ''
+sourceTable:
+  schema: '{{task.vendasods-susp:null$_$VENDASODS.schema}}'
+  type: TABLE
+  name: Devolucao_Item
+  tableDef:
+    columns:
+      - name: Devolucao_Item_ID
+        ordinal: 1
+        nullable: false
+        primaryKeyOrdinal: 1
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: devolucao_item_id
+        flags: NONE
+      - name: Devolucao_ID
+        ordinal: 2
+        nullable: false
+        primaryKeyOrdinal: 0
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: devolucao_id
+        flags: NONE
+      - name: PedItem_ID
+        ordinal: 3
+        nullable: false
+        primaryKeyOrdinal: 0
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: peditem_id
+        flags: NONE
+      - name: Produto_ID
+        ordinal: 4
+        nullable: false
+        primaryKeyOrdinal: 0
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: produto_id
+        flags: NONE
+      - name: Qtde_Devolvida
+        ordinal: 5
+        nullable: false
+        primaryKeyOrdinal: 0
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: qtde_devolvida
+        flags: NONE
+      - name: PrecoUN_Venda
+        ordinal: 6
+        nullable: false
+        primaryKeyOrdinal: 0
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 2
+          originalTypeFull: ''
+        id: precoun_venda
+        flags: NONE
+      - name: Valor_Devolucao
+        ordinal: 7
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 2
+          originalTypeFull: ''
+        id: valor_devolucao
+        flags: NONE
+    secureQri: ''
+    fullLoadOnly: false

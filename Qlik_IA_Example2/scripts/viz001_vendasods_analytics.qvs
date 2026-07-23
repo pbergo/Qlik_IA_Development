@@ -1,0 +1,260 @@
+///////////////////////////////////////////////////////////////////////////
+// Script: viz001_vendasods_analytics
+// Objetivo: Script de carga do app de analytics do VendasODS. Carrega as
+//          dimensões completas do Gold (dim_cliente, dim_vendedor,
+//          dim_produto, dim_tempo) e, a partir dos fatos Gold no modelo
+//          Kimball tradicional (fact_vendas, fact_remessas,
+//          fact_devolucoes - cada um carregando suas próprias FKs de
+//          dimensão diretamente, restrito a ano >= 2024), monta a tabela-
+//          ponte link_fato específica do Qlik NO MOMENTO DA CARGA, e então
+//          remove as FKs de dimensão de volta dos próprios fatos.
+// Tags: Visualization, VendasODS
+// Origem: camada Gold (materlake/gold/, da-s3) - estrela Kimball agnóstica
+//         de plataforma, ver ModeloDimensional/modelo_dimensional_kimball.png
+//
+// Por que construir o link_fato aqui em vez de no Gold:
+//   O Gold (trf005) guarda uma estrela de dimensões conformadas simples e
+//   agnóstica de ferramenta (qualquer ferramenta de BI ou motor SQL
+//   consegue consumir como está). Mas carregado como está no Qlik,
+//   fact_vendas/fact_remessas/fact_devolucoes compartilhariam 2+ nomes de
+//   campo entre si (key_cliente, key_vendedor, key_data), o que o motor
+//   associativo do Qlik resolve criando tabelas de chave sintética. Então
+//   este app - o único consumidor específico do Qlik - constrói uma
+//   tabela-ponte link_fato a partir dos fatos Gold brutos: uma linha por
+//   (fato de origem, chave de grão), capturando key_produto/key_cliente/
+//   key_vendedor/key_data mais os ids degenerados (key_pedido/key_peditem/
+//   key_devolucao) e gen_tipo_fato (de qual fonte a linha veio). Os fatos
+//   são então reduzidos à sua própria chave de grão dedicada
+//   (key_vendas/key_remessas/key_devolucoes) + medidas apenas. Ver
+//   ModeloDimensional/modelo_dimensional_qlik.png pro modelo resultante do
+//   lado Qlik. Resultado: nenhuma dimensão é associada a mais de uma
+//   tabela, e nenhum par de fatos compartilha um campo-chave.
+//
+// Descoberta de arquivo (materlake/): o conector S3 V2 desse tenant não
+//          suporta carga via wildcard, e ErrorMode=0 não suprime "arquivo
+//          não encontrado" para um caminho literal sob materlake/
+//          (confirmado em teste ao vivo durante a construção do str001) -
+//          então toda checagem de existência de arquivo de ano passa pelo
+//          mesmo mecanismo 'da-s3-metadata' (ListObjects, prefix='' +
+//          filtragem exata do lado do cliente) que o str001 usa, em vez do
+//          probe clássico ProbeFileExists.
+///////////////////////////////////////////////////////////////////////////
+
+SET vS3Root = 'lib://VendasODS_Shared:da-s3/';
+SET vGoldKeyPrefix = 'materlake/gold/';
+SET vGoldPath = '$(vS3Root)$(vGoldKeyPrefix)';
+LET vMinFactYear = 2024;
+LET vMaxFactYear = Year(Today());
+
+// ---------------------------------------------------------------------
+// Descoberta de arquivo (materlake/) - mesmo padrão do
+// str001_bronze_vendasods: lista o bucket inteiro uma vez com prefix=''
+// via 'da-s3-metadata', mantém em memória, filtra do lado do cliente.
+// ---------------------------------------------------------------------
+LIB CONNECT TO 'VendasODS_Shared:da-s3-metadata';
+
+AllObjects:
+LOAD Key as ObjKey;
+SELECT Key
+FROM ListObjects
+WITH PROPERTIES (
+prefix='',
+maxResults=''
+);
+
+SUB CheckKeyExists(vKey)
+    KeyMatch:
+    NOCONCATENATE
+    LOAD ObjKey
+    RESIDENT AllObjects
+    WHERE ObjKey = '$(vKey)';
+    LET vKeyExists = If(NoOfRows('KeyMatch') > 0, 1, 0);
+    DROP TABLE KeyMatch;
+END SUB
+
+// ---------------------------------------------------------------------
+// 1. Dimensões - carregadas por completo
+// ---------------------------------------------------------------------
+TRACE Carregando dimensões;
+
+dim_cliente:
+NOCONCATENATE
+LOAD *
+FROM [$(vGoldPath)dim_cliente.parquet]
+(parquet);
+
+dim_vendedor:
+NOCONCATENATE
+LOAD *
+FROM [$(vGoldPath)dim_vendedor.parquet]
+(parquet);
+
+dim_produto:
+NOCONCATENATE
+LOAD *
+FROM [$(vGoldPath)dim_produto.parquet]
+(parquet);
+
+dim_tempo:
+NOCONCATENATE
+LOAD *
+FROM [$(vGoldPath)dim_tempo.parquet]
+(parquet);
+
+// ---------------------------------------------------------------------
+// 2. Acumulador link_fato - populado por ano abaixo, a partir dos fatos
+//    Gold brutos, antes desses fatos serem reduzidos.
+// ---------------------------------------------------------------------
+link_fato:
+LOAD * INLINE [
+key_vendas, key_remessas, key_devolucoes, gen_tipo_fato, key_pedido, key_peditem, key_devolucao, key_produto, key_cliente, key_vendedor, key_data
+];
+
+// ---------------------------------------------------------------------
+// 3. Fatos - só ano >= 2024. Cada arquivo Gold é carregado bruto (com
+//    suas FKs diretas completas), usado para alimentar o link_fato, e
+//    então reduzido à sua própria chave de grão dedicada + medidas para
+//    a tabela de fato final.
+// ---------------------------------------------------------------------
+FOR vYear = $(vMinFactYear) to $(vMaxFactYear)
+
+    LET vFactVendasKey = '$(vGoldKeyPrefix)fact_vendas_$(vYear).parquet';
+    LET vFactVendasFile = '$(vS3Root)$(vFactVendasKey)';
+    CALL CheckKeyExists('$(vFactVendasKey)');
+
+    IF vKeyExists > 0 THEN
+
+        TRACE Carregando fact_vendas ano $(vYear);
+
+        FactVendas_Raw:
+        NOCONCATENATE
+        LOAD *
+        FROM [$(vFactVendasFile)]
+        (parquet);
+
+        Concatenate (link_fato)
+        LOAD
+            key_peditem as key_vendas,
+            Null() as key_remessas,
+            Null() as key_devolucoes,
+            'Venda' as gen_tipo_fato,
+            key_pedido,
+            key_peditem,
+            Null() as key_devolucao,
+            key_produto,
+            key_cliente,
+            key_vendedor,
+            key_data
+        RESIDENT FactVendas_Raw;
+
+        fact_vendas:
+        LOAD
+            key_peditem as key_vendas,
+            flg_cancelado,
+            nm_vendas,
+            nm_qtde_venda,
+            nm_valor_venda,
+            nm_valor_custo,
+            nm_valor_frete,
+            nm_valor_margem,
+            nm_perc_frete
+        RESIDENT FactVendas_Raw;
+
+        DROP TABLE FactVendas_Raw;
+
+    ENDIF
+
+    LET vFactRemessasKey = '$(vGoldKeyPrefix)fact_remessas_$(vYear).parquet';
+    LET vFactRemessasFile = '$(vS3Root)$(vFactRemessasKey)';
+    CALL CheckKeyExists('$(vFactRemessasKey)');
+
+    IF vKeyExists > 0 THEN
+
+        TRACE Carregando fact_remessas ano $(vYear);
+
+        FactRemessas_Raw:
+        NOCONCATENATE
+        LOAD *
+        FROM [$(vFactRemessasFile)]
+        (parquet);
+
+        Concatenate (link_fato)
+        LOAD
+            Null() as key_vendas,
+            key_pedido as key_remessas,
+            Null() as key_devolucoes,
+            'Remessa' as gen_tipo_fato,
+            key_pedido,
+            Null() as key_peditem,
+            Null() as key_devolucao,
+            Null() as key_produto,
+            key_cliente,
+            key_vendedor,
+            key_data
+        RESIDENT FactRemessas_Raw;
+
+        fact_remessas:
+        LOAD
+            key_pedido as key_remessas,
+            nm_remessas,
+            nm_qtde_remessas,
+            nm_valor_remessas,
+            nm_custo_remessas,
+            nm_frete_remessas,
+            nm_margem_remessas,
+            nm_perc_frete_remessas,
+            nm_leadtime_remessa
+        RESIDENT FactRemessas_Raw;
+
+        DROP TABLE FactRemessas_Raw;
+
+    ENDIF
+
+    LET vFactDevolucoesKey = '$(vGoldKeyPrefix)fact_devolucoes_$(vYear).parquet';
+    LET vFactDevolucoesFile = '$(vS3Root)$(vFactDevolucoesKey)';
+    CALL CheckKeyExists('$(vFactDevolucoesKey)');
+
+    IF vKeyExists > 0 THEN
+
+        TRACE Carregando fact_devolucoes ano $(vYear);
+
+        FactDevolucoes_Raw:
+        NOCONCATENATE
+        LOAD *
+        FROM [$(vFactDevolucoesFile)]
+        (parquet);
+
+        Concatenate (link_fato)
+        LOAD
+            Null() as key_vendas,
+            Null() as key_remessas,
+            key_devolucao_item as key_devolucoes,
+            'Devolucao' as gen_tipo_fato,
+            key_pedido,
+            key_peditem,
+            key_devolucao,
+            key_produto,
+            key_cliente,
+            key_vendedor,
+            key_data
+        RESIDENT FactDevolucoes_Raw;
+
+        fact_devolucoes:
+        LOAD
+            key_devolucao_item as key_devolucoes,
+            str_observacao,
+            nm_devolucoes,
+            nm_qtde_devolvida,
+            nm_valor_devolucao,
+            nm_leadtime_devolucao
+        RESIDENT FactDevolucoes_Raw;
+
+        DROP TABLE FactDevolucoes_Raw;
+
+    ENDIF
+
+NEXT vYear
+
+DROP TABLE AllObjects;
+
+TRACE viz001_vendasods_analytics concluído;

@@ -1,0 +1,211 @@
+///////////////////////////////////////////////////////////////////////////
+// Script: ext003_devolucoes
+// Purpose: Extraction of VendasODS returns tables (Devolucoes, Devolucao_Item)
+//          from the source MySQL database, read directly through the Qlik
+//          Data Analytics connection 'da-mysql' (Direct Access Gateway),
+//          and stored as Parquet files in the Bronze layer on S3 ('da-s3'),
+//          partitioned by year: Devolucoes_YYYY.parquet / Devolucao_Item_YYYY.parquet.
+// Tags: Extract, VendasODS
+//
+// Load type:
+//   - INITIAL  (no Devolucoes_*.parquet found yet in Bronze): full history is
+//     extracted and split into one Parquet file per year.
+//   - INCREMENTAL (files already exist): only the last N days of
+//     Devolucoes.Data_Devolucao are re-extracted from source. For every year
+//     touched by that window, the previously stored Parquet file is
+//     re-read, rows that fall inside the refreshed window are dropped
+//     (Devolucoes: by Data_Devolucao; Devolucao_Item: by the Devolucao_ID
+//     being refreshed, since Devolucao_Item has no date of its own), and the
+//     file is rewritten with old (untouched) + new (refreshed) rows.
+//
+// NOTE: Devolucao_Item has no date of its own - its incremental window is
+// propagated from Devolucoes.Data_Devolucao via a join, the same pattern
+// already used for PedItem via Pedidos.Data_Venda in ext002.
+///////////////////////////////////////////////////////////////////////////
+
+SET vSourceName = 'vendasods';
+SET vBronzePath = 'lib://VendasODS_Shared:da-s3/bronze/$(vSourceName)/';
+LET vWindowDays = 7;
+LET vCutoffDate = Date(Today() - $(vWindowDays), 'YYYY-MM-DD');
+LET vMinYear = Year(Today()) - 10;
+LET vMaxYear = Year(Today());
+
+LIB CONNECT TO 'VendasODS_Shared:da-mysql';
+
+// ---------------------------------------------------------------------
+// Reusable file-existence probe.
+// NOTE: FILELIST() is unreliable on this tenant/connector (it silently
+// returns zero matches even when the files exist), so existence is
+// checked by attempting to read one row with ErrorMode=0 and inspecting
+// ScriptError instead of enumerating a wildcard.
+// ---------------------------------------------------------------------
+SUB ProbeFileExists(vProbePath)
+    SET ErrorMode = 0;
+    ProbeCheckTable:
+    LOAD * FROM [$(vProbePath)] (parquet);
+    LET vProbeExists = If(ScriptError = '', 1, 0);
+    IF TableNumber('ProbeCheckTable') > 0 THEN
+        DROP TABLE ProbeCheckTable;
+    ENDIF
+    SET ErrorMode = 1;
+END SUB
+
+// ---------------------------------------------------------------------
+// 1. Detect load mode: INITIAL if no Devolucoes parquet file exists yet
+//    for any year in the probed range
+// ---------------------------------------------------------------------
+LET vExistingFileCount = 0;
+FOR vProbeYear = $(vMinYear) to $(vMaxYear)
+    CALL ProbeFileExists('$(vBronzePath)Devolucoes_$(vProbeYear).parquet');
+    LET vExistingFileCount = vExistingFileCount + vProbeExists;
+NEXT vProbeYear
+
+IF vExistingFileCount = 0 THEN
+    LET vLoadMode = 'INITIAL';
+ELSE
+    LET vLoadMode = 'INCREMENTAL';
+ENDIF
+
+TRACE Load mode detected: $(vLoadMode);
+
+// ---------------------------------------------------------------------
+// 2. Extract from source according to load mode
+// NOTE: NOCONCATENATE is required here - without it, Qlik silently
+// auto-concatenates this result into any earlier table that happens to
+// share the same field names, instead of creating a new
+// Devolucoes_Extract/DevolucaoItem_Extract table.
+// ---------------------------------------------------------------------
+IF vLoadMode = 'INITIAL' THEN
+
+    Devolucoes_Extract:
+    NOCONCATENATE
+    SQL SELECT *
+    FROM $(vSourceName).Devolucoes;
+
+    DevolucaoItem_Extract:
+    NOCONCATENATE
+    SQL SELECT *
+    FROM $(vSourceName).Devolucao_Item;
+
+ELSE
+
+    Devolucoes_Extract:
+    NOCONCATENATE
+    SQL SELECT *
+    FROM $(vSourceName).Devolucoes
+    WHERE Data_Devolucao >= '$(vCutoffDate)';
+
+    DevolucaoItem_Extract:
+    NOCONCATENATE
+    SQL SELECT DI.*
+    FROM $(vSourceName).Devolucao_Item DI
+    INNER JOIN $(vSourceName).Devolucoes D ON DI.Devolucao_ID = D.Devolucao_ID
+    WHERE D.Data_Devolucao >= '$(vCutoffDate)';
+
+ENDIF
+
+// ---------------------------------------------------------------------
+// 3. Tag Devolucoes rows with their year, and propagate it to
+//    Devolucao_Item via Devolucao_ID so both tables can be routed to the
+//    correct year file
+// ---------------------------------------------------------------------
+Devolucoes_Extract_Y:
+NOCONCATENATE
+LOAD *,
+     Year(Data_Devolucao) as _Ano
+RESIDENT Devolucoes_Extract;
+
+DROP TABLE Devolucoes_Extract;
+RENAME TABLE Devolucoes_Extract_Y TO Devolucoes_Extract;
+
+DevolucaoYearMap:
+NOCONCATENATE
+LOAD Devolucao_ID, _Ano
+RESIDENT Devolucoes_Extract;
+
+Left Join (DevolucaoItem_Extract)
+LOAD Devolucao_ID, _Ano
+RESIDENT DevolucaoYearMap;
+
+DROP TABLE DevolucaoYearMap;
+
+// ---------------------------------------------------------------------
+// 4. Distinct years touched by this extraction batch
+// ---------------------------------------------------------------------
+YearsTemp:
+NOCONCATENATE
+LOAD DISTINCT _Ano as Ano
+RESIDENT Devolucoes_Extract;
+
+LET vNumYears = NoOfRows('YearsTemp');
+
+// ---------------------------------------------------------------------
+// 5. Build and store one Parquet file per year for Devolucoes and
+//    Devolucao_Item
+// ---------------------------------------------------------------------
+FOR i = 0 to vNumYears - 1
+
+    LET vYear = Peek('Ano', $(i), 'YearsTemp');
+    LET vDevolucoesFile = '$(vBronzePath)Devolucoes_$(vYear).parquet';
+    LET vDevolucaoItemFile = '$(vBronzePath)Devolucao_Item_$(vYear).parquet';
+
+    TRACE Processing year $(vYear) - mode $(vLoadMode);
+
+    Devolucoes_Year:
+    NOCONCATENATE
+    LOAD Devolucao_ID, Pedido_ID, Data_Devolucao, Observacao
+    RESIDENT Devolucoes_Extract
+    WHERE _Ano = $(vYear);
+
+    DevolucaoItem_Year:
+    NOCONCATENATE
+    LOAD Devolucao_Item_ID, Devolucao_ID, PedItem_ID, Produto_ID, Qtde_Devolvida, PrecoUN_Venda, Valor_Devolucao
+    RESIDENT DevolucaoItem_Extract
+    WHERE _Ano = $(vYear);
+
+    IF vLoadMode = 'INCREMENTAL' THEN
+
+        // Only merge with prior file content if a file for this year already exists
+        CALL ProbeFileExists('$(vDevolucoesFile)');
+        LET vYearFileExists = vProbeExists;
+
+        IF vYearFileExists > 0 THEN
+
+            // Distinct Devolucao_ID being refreshed in this run, used to drop
+            // the corresponding old Devolucao_Item rows (no date of its own)
+            RefreshedIDs:
+            NOCONCATENATE
+            LOAD DISTINCT Devolucao_ID as Devolucao_ID_Refreshed
+            RESIDENT Devolucoes_Extract
+            WHERE _Ano = $(vYear);
+
+            // Keep prior Devolucoes rows OUTSIDE the refreshed window
+            Concatenate (Devolucoes_Year)
+            LOAD Devolucao_ID, Pedido_ID, Data_Devolucao, Observacao
+            FROM [$(vDevolucoesFile)]
+            (parquet)
+            WHERE Data_Devolucao < '$(vCutoffDate)';
+
+            // Keep prior Devolucao_Item rows whose Devolucao_ID was NOT refreshed
+            Concatenate (DevolucaoItem_Year)
+            LOAD Devolucao_Item_ID, Devolucao_ID, PedItem_ID, Produto_ID, Qtde_Devolvida, PrecoUN_Venda, Valor_Devolucao
+            FROM [$(vDevolucaoItemFile)]
+            (parquet)
+            WHERE NOT Exists(Devolucao_ID_Refreshed, Devolucao_ID);
+
+            DROP TABLE RefreshedIDs;
+
+        ENDIF
+
+    ENDIF
+
+    STORE Devolucoes_Year INTO [$(vDevolucoesFile)] (parquet);
+    STORE DevolucaoItem_Year INTO [$(vDevolucaoItemFile)] (parquet);
+
+    DROP TABLES Devolucoes_Year, DevolucaoItem_Year;
+
+NEXT i
+
+DROP TABLES Devolucoes_Extract, DevolucaoItem_Extract, YearsTemp;
+
+TRACE ext003_devolucoes completed;
