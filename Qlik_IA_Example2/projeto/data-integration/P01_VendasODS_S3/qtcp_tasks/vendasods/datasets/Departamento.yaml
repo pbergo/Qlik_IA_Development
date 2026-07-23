@@ -1,0 +1,44 @@
+properties:
+  id: departamento
+  name: Departamento
+  type: LANDING
+  inputDatasets:
+    - type: TABLE
+      name: Departamento
+      projectId: '{{ref(project.current.projectId)}}'
+      taskId: vendasods-susp
+      schema: '{{task.vendasods-susp:null$_$VENDASODS.schema}}'
+  virtualDataset: false
+  description: ''
+sourceTable:
+  schema: '{{task.vendasods-susp:null$_$VENDASODS.schema}}'
+  type: TABLE
+  name: Departamento
+  tableDef:
+    columns:
+      - name: Departamento
+        ordinal: 1
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: WSTRING
+          length: 255
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: departamento
+        flags: NONE
+      - name: Departamento_ID
+        ordinal: 2
+        nullable: false
+        primaryKeyOrdinal: 1
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: departamento_id
+        flags: NONE
+    secureQri: ''
+    fullLoadOnly: false

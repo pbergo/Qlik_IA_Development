@@ -1,0 +1,20 @@
+{
+  "variables": {
+    "cloudStagingConnection": null,
+    "platformConnection": null,
+    "projectName": "P01_VendasODS_S3",
+    "task.vendasods-susp.folder": "materlake/landing",
+    "task.vendasods-susp.sourceConnection": "{{id(connection, VendasODS_Data.di-oracle)}}",
+    "task.vendasods-susp.targetConnection": "{{id(connection, VendasODS_Data.di-s3)}}",
+    "task.vendasods-susp:null$_$VENDASODS.schema": "VENDASODS",
+    "task.vendasods-susp:null$_$VENDASODS.schemaPattern": "VENDASODS"
+  },
+  "connectionProperties": {
+    "task.vendasods-susp.sourceConnection": {
+      "type": "repsrc_oracle"
+    },
+    "task.vendasods-susp.targetConnection": {
+      "type": "reptgt_qdis3"
+    }
+  }
+}

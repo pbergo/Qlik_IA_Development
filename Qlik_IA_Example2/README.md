@@ -6,16 +6,16 @@ O objetivo do projeto é criar um pipeline de dados completo e útil, além de u
 
 ## Diagrama de Arquitetura
 
-Diagrama de referência completo (camadas, gateway, pontos de controle de qualidade/exposição via Qlik Data Product): [architecture/Medallion Architecture.pdf](<architecture/Medallion%20Architecture.pdf>) (fonte editável: [.drawio](<architecture/Medallion%20Architecture.drawio>) / [.pptx](<architecture/Medallion%20Architecture.pptx>)).
+Diagrama de referência completo (camadas, gateway, pontos de controle de qualidade/exposição via Qlik Data Product): [projeto/architecture/Medallion Architecture.pdf](<projeto/architecture/Medallion%20Architecture.pdf>) (fonte editável: [.drawio](<projeto/architecture/Medallion%20Architecture.drawio>) / [.pptx](<projeto/architecture/Medallion%20Architecture.pptx>)).
 
-![Diagrama de Arquitetura](<architecture/Medallion%20Architecture.png>)
+![Diagrama de Arquitetura](<projeto/architecture/Medallion%20Architecture.png>)
 
 ## Diagrama de dados:
 
-- Modelo fonte: [Modelos_Dados/VendasODS-ERD.jpg](Modelos_Dados/VendasODS-ERD.jpg)
+- Modelo fonte: [projeto/modelos-dados/VendasODS-ERD.jpg](projeto/modelos-dados/VendasODS-ERD.jpg)
 - Modelo dimensional:
-  - Kimball: [Modelos_Dados/modelo_dimensional_kimball.png](Modelos_Dados/modelo_dimensional_kimball.png)
-  - Qlik: [Modelos_Dados/modelo_dimensional_qlik.png](Modelos_Dados/modelo_dimensional_qlik.png)
+  - Kimball: [projeto/modelos-dados/modelo_dimensional_kimball.png](projeto/modelos-dados/modelo_dimensional_kimball.png)
+  - Qlik: [projeto/modelos-dados/modelo_dimensional_qlik.png](projeto/modelos-dados/modelo_dimensional_qlik.png)
 
 ## Diagrama de Atualização (Automação do Pipeline)
 
@@ -47,58 +47,61 @@ flowchart TD
 ```
 ./
 ├── README.md                          --> Este arquivo
-├── Guia_Implementacao_Novo_Tenant.md  --> Pré-requisitos e ambiente para implantar em um tenant novo
-├── Guia_Instalacao_Projeto.md         --> Passo a passo de instalação (comandos, ordem, validação)
 ├── LICENSE
 │
-├── architecture/
-│   ├── Medallion Architecture.pdf     --> Diagrama de arquitetura de referência
-│   ├── Medallion Architecture.drawio
-│   └── Medallion Architecture.pptx
+├── implantacao/                       --> O que precisa existir/estar pronto ANTES do pipeline rodar
+│   ├── Guia_Implementacao_Novo_Tenant.md  --> Pré-requisitos e ambiente para implantar em um tenant novo
+│   ├── Guia_Instalacao_Projeto.md         --> Passo a passo de instalação (comandos, ordem, validação)
+│   │
+│   ├── tenant-information/
+│   │   └── tenant-info.md             --> Informações para conectar ao tenant Qlik Cloud
+│   │
+│   ├── secrets/                       --> Deveria estar no .gitignore
+│   │   └── secrets.env
+│   │
+│   ├── data-connections/
+│   │   ├── da-oracle.md               --> Conexão de Data Analytics com Oracle (legado/alternativa)
+│   │   ├── da-s3.md                   --> Conexão de storage (camadas Bronze/Silver/Gold)
+│   │   ├── di-oracle.md               --> Conexão de Data Integration com Oracle (fonte real do CDC)
+│   │   └── di-s3.md                   --> Conexão de Data Integration com o destino S3 (landing)
+│   │
+│   └── base-dados/
+│       ├── cdc_config_vendasods.sql       --> Usuário Oracle 'vendasods' + grants (CDC e DDL)
+│       ├── create_database_vendasods.sql  --> Criação das tabelas, FKs, auto increment e constraints
+│       └── vendasods_oracle_data.sql      --> Cópia dos dados (INSERT INTO) do schema VENDASODS
 │
-├── tenant-information/
-│   └── tenant-info.md                 --> Informações para conectar ao tenant Qlik Cloud
-│
-├── secrets/                           --> Deveria estar no .gitignore
-│   └── secrets.env
-│
-├── data-connections/
-│   ├── da-oracle.md                   --> Conexão de Data Analytics com Oracle (legado/alternativa)
-│   ├── da-mysql.md                    --> Conexão de Data Analytics com MySQL (usada pelos scripts ext00x legados)
-│   ├── da-s3.md                       --> Conexão de storage (camadas Bronze/Silver/Gold)
-│   ├── di-oracle.md                   --> Conexão de Data Integration com Oracle (fonte real do CDC)
-│   ├── di-mysql.md                    --> Conexão de Data Integration com MySQL (legado/alternativa)
-│   └── di-s3.md                       --> Conexão de Data Integration com o destino S3 (landing)
-│
-├── data-integration/
-│   └── P01_VendasODS_S3/              --> Projeto de Data Integration exportado (tarefa CDC 'vendasods-susp')
-│
-├── Modelos_Dados/
-│   ├── VendasODS-ERD.jpg
-│   ├── modelo_dimensional_kimball.dot / .png
-│   └── modelo_dimensional_qlik.dot / .png
-│
-├── data-folders/landing/              --> Amostras locais do formato gerado pela tarefa CDC (full load + __ct)
-│
-├── automation/
-│   ├── VendasODS_Pipeline_Execution.json                    --> Exportação da Automation que executa a cascata
-│   └── VendasODS_Pipeline_Execution_Requisitos_Tecnicos.md  --> Requisitos técnicos específicos da Automation
-│
-└── scripts/
-    ├── ext001_cadastros.qvs               --> Legado (não usado no fluxo atual)
-    ├── ext002_pedidos_peditem.qvs         --> Legado (não usado no fluxo atual)
-    ├── ext003_devolucoes.qvs              --> Legado (não usado no fluxo atual)
-    ├── teste.qvs                          --> Script de teste/descoberta do conector S3
-    ├── str001_bronze_vendasods.qvs        --> Bronze (lê da Landing/CDC)
-    ├── trf001_silver_vendasods.qvs        --> Silver
-    ├── trf002_silver_devolucoes.qvs       --> Silver
-    ├── trf003_silver_vendas.qvs           --> Silver
-    ├── trf004_silver_devolucoes_consolidado.qvs --> Silver
-    ├── trf005_gold_star_schema.qvs        --> Gold (star schema)
-    └── viz001_vendasods_analytics.qvs     --> App de análise
+└── projeto/                           --> O pipeline em si (o que roda em produção)
+    ├── architecture/
+    │   ├── Medallion Architecture.pdf     --> Diagrama de arquitetura de referência
+    │   ├── Medallion Architecture.drawio
+    │   └── Medallion Architecture.pptx
+    │
+    ├── modelos-dados/
+    │   ├── VendasODS-ERD.jpg
+    │   ├── modelo_dimensional_kimball.dot / .png
+    │   └── modelo_dimensional_qlik.dot / .png
+    │
+    ├── data-integration/
+    │   └── P01_VendasODS_S3/          --> Projeto de Data Integration exportado (tarefa CDC 'vendasods-susp')
+    │
+    ├── automation/
+    │   ├── VendasODS_Pipeline_Execution.json                    --> Exportação da Automation que executa a cascata
+    │   └── VendasODS_Pipeline_Execution_Requisitos_Tecnicos.md  --> Requisitos técnicos específicos da Automation
+    │
+    └── scripts/
+        ├── ext001_cadastros.qvs               --> Legado (não usado no fluxo atual)
+        ├── ext002_pedidos_peditem.qvs         --> Legado (não usado no fluxo atual)
+        ├── ext003_devolucoes.qvs              --> Legado (não usado no fluxo atual)
+        ├── str001_bronze_vendasods.qvs        --> Bronze (lê da Landing/CDC)
+        ├── trf001_silver_vendasods.qvs        --> Silver
+        ├── trf002_silver_devolucoes.qvs       --> Silver
+        ├── trf003_silver_vendas.qvs           --> Silver
+        ├── trf004_silver_devolucoes_consolidado.qvs --> Silver
+        ├── trf005_gold_star_schema.qvs        --> Gold (star schema)
+        └── viz001_vendasods_analytics.qvs     --> App de análise
 ```
 
 ## Documentação
 
-- **[Guia_Implementacao_Novo_Tenant.md](Guia_Implementacao_Novo_Tenant.md)** — o que precisa existir antes de instalar: licenciamento do tenant, papéis de usuário, conectividade com a fonte, gateway, bucket S3, ambiente de deploy (Git/`qlik-cli`/MCP), checklist de segredos e riscos conhecidos.
-- **[Guia_Instalacao_Projeto.md](Guia_Instalacao_Projeto.md)** — o passo a passo de instalação em si: comandos, ordem de execução, importação do projeto de Data Integration e da Automation, validação, e os padrões de nomenclatura do projeto.
+- **[implantacao/Guia_Implementacao_Novo_Tenant.md](implantacao/Guia_Implementacao_Novo_Tenant.md)** — o que precisa existir antes de instalar: licenciamento do tenant, papéis de usuário, conectividade com a fonte, gateway, bucket S3, ambiente de deploy (Git/`qlik-cli`/MCP), checklist de segredos e riscos conhecidos.
+- **[implantacao/Guia_Instalacao_Projeto.md](implantacao/Guia_Instalacao_Projeto.md)** — o passo a passo de instalação em si: comandos, ordem de execução, importação do projeto de Data Integration e da Automation, validação, e os padrões de nomenclatura do projeto.

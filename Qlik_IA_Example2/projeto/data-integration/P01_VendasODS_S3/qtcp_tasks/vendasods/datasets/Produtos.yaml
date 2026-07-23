@@ -1,0 +1,68 @@
+properties:
+  id: produtos
+  name: Produtos
+  type: LANDING
+  inputDatasets:
+    - type: TABLE
+      name: Produtos
+      projectId: '{{ref(project.current.projectId)}}'
+      taskId: vendasods-susp
+      schema: '{{task.vendasods-susp:null$_$VENDASODS.schema}}'
+  virtualDataset: false
+  description: ''
+sourceTable:
+  schema: '{{task.vendasods-susp:null$_$VENDASODS.schema}}'
+  type: TABLE
+  name: Produtos
+  tableDef:
+    columns:
+      - name: Produto_Code
+        ordinal: 1
+        nullable: false
+        primaryKeyOrdinal: 1
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: produto_code
+        flags: NONE
+      - name: Produto_Referencia
+        ordinal: 2
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: WSTRING
+          length: 100
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: produto_referencia
+        flags: NONE
+      - name: Produto
+        ordinal: 3
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: WSTRING
+          length: 100
+          precision: 0
+          scale: 0
+          originalTypeFull: ''
+        id: produto
+        flags: NONE
+      - name: Categoria_ID
+        ordinal: 4
+        nullable: true
+        primaryKeyOrdinal: 0
+        datatype:
+          type: NUMERIC
+          length: 0
+          precision: 10
+          scale: 0
+          originalTypeFull: ''
+        id: categoria_id
+        flags: NONE
+    secureQri: ''
+    fullLoadOnly: false

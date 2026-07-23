@@ -1,0 +1,505 @@
+///////////////////////////////////////////////////////////////////////////
+// Script: trf005_gold_star_schema
+// Objetivo: Construir a camada Gold do VendasODS (Parquet, 'da-s3')
+//          materializando o modelo dimensional Kimball TRADICIONAL
+//          documentado em ModeloDimensional/modelo_dimensional_kimball.png:
+//            - dim_cliente   (desnormalizado: Cliente + Cidade/Pais)
+//            - dim_vendedor  (desnormalizado: Vendedor + Cidade/Pais + Gerente)
+//            - dim_produto   (desnormalizado: Produto + Categoria + Departamento)
+//            - dim_tempo     (calendário cobrindo Data_Venda, Data_Remessa e
+//              Data_Devolucao - uma única dimensão conformada, reutilizada
+//              por cada fato através do mesmo campo key_data)
+//            - fact_vendas      (grão: PedItem - uma linha por item de pedido)
+//            - fact_remessas    (grão: Pedido - uma linha por pedido
+//              enviado, só pedidos com Data_Remessa preenchida; medidas são
+//              as mesmas de fact_vendas agregadas por pedido, com sufixo
+//              "_remessas", mais nm_leadtime_remessa = Data_Remessa - Data_Venda)
+//            - fact_devolucoes  (grão: Devolucao_Item - uma linha por linha
+//              devolvida; key_cliente/key_vendedor/Data_Venda são resolvidos
+//              a partir do Pedido original via uma busca por Pedido_ID
+//              construída uma vez a partir de todos os anos de Vendas, já
+//              que uma devolução pode referenciar um pedido feito num ano
+//              anterior ao da própria devolução;
+//              nm_leadtime_devolucao = Data_Devolucao - Data_Venda)
+//
+// Essa camada Gold é propositalmente agnóstica de plataforma: todo fato
+// carrega seu próprio conjunto completo de FKs de dimensão diretamente
+// (key_produto, key_cliente, key_vendedor, key_data), exatamente como um
+// barramento de dimensões conformadas seria modelado para qualquer motor
+// relacional ou ferramenta de BI (Tableau, Power BI, SQL puro) - não
+// adaptado às peculiaridades do motor associativo do Qlik. Cada fato
+// também carrega seu próprio campo de contagem dedicado (nm_vendas /
+// nm_remessas / nm_devolucoes, todos =1, então Sum() pode ser usado para
+// contagens rápidas de registros) nomeado de forma diferente por fato para
+// que um campo "count" compartilhado ingenuamente nunca associe os três
+// fatos entre si sem querer.
+//
+// A tabela-ponte link_fato, específica do Qlik (necessária só para evitar
+// chaves sintéticas no motor associativo do Qlik), NÃO é construída aqui -
+// é montada no momento da carga pelo viz001_vendasods_analytics.qvs, a
+// partir desses mesmos arquivos Parquet do Gold. Isso mantém essa camada
+// Gold reutilizável por qualquer consumidor, enquanto a adaptação
+// específica do Qlik fica só onde é realmente necessária.
+// Tags: Transform, VendasODS
+// Layer: Gold (materlake/gold/)
+// Origem: Silver silver001 (cadastros) + silver002 (Vendas / Devolucoes, por ano)
+//
+// Descoberta de arquivo (materlake/): o conector S3 V2 desse tenant não
+//          suporta carga via wildcard, e ErrorMode=0 não suprime "arquivo
+//          não encontrado" para um caminho literal sob materlake/
+//          (confirmado em teste ao vivo durante a construção do str001) -
+//          então toda checagem de existência (Vendas_YYYY/Devolucoes_YYYY
+//          em silver002) passa pelo mesmo mecanismo 'da-s3-metadata'
+//          (ListObjects, prefix='' + filtragem exata do lado do cliente)
+//          que o str001 usa, em vez do probe clássico ProbeFileExists.
+///////////////////////////////////////////////////////////////////////////
+
+SET vS3Root = 'lib://VendasODS_Shared:da-s3/';
+SET vSilverKeyPrefix = 'materlake/silver/silver001/';
+SET vSilverPath = '$(vS3Root)$(vSilverKeyPrefix)';
+SET vVendasKeyPrefix = 'materlake/silver/silver002/';
+SET vVendasPath = '$(vS3Root)$(vVendasKeyPrefix)';
+SET vGoldKeyPrefix = 'materlake/gold/';
+SET vGoldPath = '$(vS3Root)$(vGoldKeyPrefix)';
+LET vMinYear = Year(Today()) - 10;
+LET vMaxYear = Year(Today());
+
+// ---------------------------------------------------------------------
+// Descoberta de arquivo (materlake/) - mesmo padrão do
+// str001_bronze_vendasods: lista o bucket inteiro uma vez com prefix=''
+// via 'da-s3-metadata', mantém em memória, filtra do lado do cliente.
+// ---------------------------------------------------------------------
+LIB CONNECT TO 'VendasODS_Shared:da-s3-metadata';
+
+AllObjects:
+LOAD Key as ObjKey;
+SELECT Key
+FROM ListObjects
+WITH PROPERTIES (
+prefix='',
+maxResults=''
+);
+
+SUB CheckKeyExists(vKey)
+    KeyMatch:
+    NOCONCATENATE
+    LOAD ObjKey
+    RESIDENT AllObjects
+    WHERE ObjKey = '$(vKey)';
+    LET vKeyExists = If(NoOfRows('KeyMatch') > 0, 1, 0);
+    DROP TABLE KeyMatch;
+END SUB
+
+// ---------------------------------------------------------------------
+// 1. dim_cliente - Clientes desnormalizado com Cidade/Pais
+// ---------------------------------------------------------------------
+TRACE Construindo dim_cliente;
+
+Clientes_Raw:
+NOCONCATENATE
+LOAD Cliente_ID, Cliente, Cliente_Contato, Telefone, Cidade_ID
+FROM [$(vSilverPath)Clientes.parquet]
+(parquet);
+
+Cidades_Raw:
+NOCONCATENATE
+LOAD Cidade_ID, Cliente_Cidade, Cliente_Pais
+FROM [$(vSilverPath)Cidades.parquet]
+(parquet);
+
+dim_cliente:
+NOCONCATENATE
+LOAD
+    Cliente_ID as key_cliente,
+    Cliente_ID as gen_cliente,
+    Cliente as str_cliente,
+    Cliente_Contato as str_cliente_contato,
+    Telefone as str_telefone,
+    Cidade_ID as _key_cidade
+RESIDENT Clientes_Raw;
+
+Left Join (dim_cliente)
+LOAD
+    Cidade_ID as _key_cidade,
+    Cliente_Cidade as str_cidade,
+    Cliente_Pais as str_pais
+RESIDENT Cidades_Raw;
+
+DROP FIELD _key_cidade FROM dim_cliente;
+DROP TABLE Clientes_Raw;
+
+STORE dim_cliente INTO [$(vGoldPath)dim_cliente.parquet] (parquet);
+DROP TABLE dim_cliente;
+
+// ---------------------------------------------------------------------
+// 2. dim_vendedor - Vendedores desnormalizado com Cidade/Pais + Gerente
+// ---------------------------------------------------------------------
+TRACE Construindo dim_vendedor;
+
+Vendedores_Raw:
+NOCONCATENATE
+LOAD Vendedor_ID, Vendedor, Vendedor_Sexo, Cidade_ID, Gerente_ID
+FROM [$(vSilverPath)Vendedores.parquet]
+(parquet);
+
+Gerentes_Raw:
+NOCONCATENATE
+LOAD Gerente_ID, Gerente
+FROM [$(vSilverPath)Gerentes.parquet]
+(parquet);
+
+dim_vendedor:
+NOCONCATENATE
+LOAD
+    Vendedor_ID as key_vendedor,
+    Vendedor_ID as gen_vendedor,
+    Vendedor as str_vendedor,
+    Vendedor_Sexo as str_vendedor_sexo,
+    Cidade_ID as _key_cidade,
+    Gerente_ID as _key_gerente
+RESIDENT Vendedores_Raw;
+
+// str_cidade_vendedor / str_pais_vendedor - propositalmente NÃO nomeados
+// igual ao str_cidade/str_pais do dim_cliente: compartilhar dois nomes de
+// campo entre dim_cliente e dim_vendedor faria o Qlik criar uma chave
+// sintética.
+Left Join (dim_vendedor)
+LOAD
+    Cidade_ID as _key_cidade,
+    Cliente_Cidade as str_cidade_vendedor,
+    Cliente_Pais as str_pais_vendedor
+RESIDENT Cidades_Raw;
+
+Left Join (dim_vendedor)
+LOAD
+    Gerente_ID as _key_gerente,
+    Gerente as str_gerente
+RESIDENT Gerentes_Raw;
+
+DROP FIELDS _key_cidade, _key_gerente FROM dim_vendedor;
+DROP TABLES Vendedores_Raw, Gerentes_Raw, Cidades_Raw;
+
+STORE dim_vendedor INTO [$(vGoldPath)dim_vendedor.parquet] (parquet);
+DROP TABLE dim_vendedor;
+
+// ---------------------------------------------------------------------
+// 3. dim_produto - Produtos desnormalizado com Categoria + Departamento
+// ---------------------------------------------------------------------
+TRACE Construindo dim_produto;
+
+Produtos_Raw:
+NOCONCATENATE
+LOAD
+    Produto_Code as Produto_ID,
+    Produto_Referencia,
+    Produto,
+    Categoria_ID
+FROM [$(vSilverPath)Produtos.parquet]
+(parquet);
+
+Categoria_Raw:
+NOCONCATENATE
+LOAD Categoria_ID, Categoria, Departamento_ID
+FROM [$(vSilverPath)Categoria.parquet]
+(parquet);
+
+Departamento_Raw:
+NOCONCATENATE
+LOAD Departamento_ID, Departamento
+FROM [$(vSilverPath)Departamento.parquet]
+(parquet);
+
+dim_produto:
+NOCONCATENATE
+LOAD
+    Produto_ID as key_produto,
+    Produto_ID as gen_produto,
+    Produto_Referencia as str_produto_referencia,
+    Produto as str_produto,
+    Categoria_ID as _key_categoria
+RESIDENT Produtos_Raw;
+
+Left Join (dim_produto)
+LOAD
+    Categoria_ID as _key_categoria,
+    Categoria as str_categoria,
+    Departamento_ID as _key_departamento
+RESIDENT Categoria_Raw;
+
+Left Join (dim_produto)
+LOAD
+    Departamento_ID as _key_departamento,
+    Departamento as str_departamento
+RESIDENT Departamento_Raw;
+
+DROP FIELDS _key_categoria, _key_departamento FROM dim_produto;
+DROP TABLES Produtos_Raw, Categoria_Raw, Departamento_Raw;
+
+STORE dim_produto INTO [$(vGoldPath)dim_produto.parquet] (parquet);
+DROP TABLE dim_produto;
+
+// ---------------------------------------------------------------------
+// 4. dim_tempo - calendário cobrindo toda Data_Venda / Data_Remessa
+//    encontrada em todos os anos de Vendas (silver002)
+// ---------------------------------------------------------------------
+TRACE Construindo dim_tempo;
+
+AllDates:
+LOAD * INLINE [
+DataRef
+];
+
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vVendasKey = '$(vVendasKeyPrefix)Vendas_$(vYear).parquet';
+    LET vVendasFile = '$(vS3Root)$(vVendasKey)';
+    CALL CheckKeyExists('$(vVendasKey)');
+
+    IF vKeyExists > 0 THEN
+
+        DatesVenda:
+        NOCONCATENATE
+        LOAD Data_Venda as DataRef
+        FROM [$(vVendasFile)]
+        (parquet);
+
+        Concatenate (AllDates)
+        LOAD DataRef RESIDENT DatesVenda;
+
+        DROP TABLE DatesVenda;
+
+        DatesRemessa:
+        NOCONCATENATE
+        LOAD Data_Remessa as DataRef
+        FROM [$(vVendasFile)]
+        (parquet)
+        WHERE Not IsNull(Data_Remessa);
+
+        Concatenate (AllDates)
+        LOAD DataRef RESIDENT DatesRemessa;
+
+        DROP TABLE DatesRemessa;
+
+    ENDIF
+
+    LET vDevolucoesKey = '$(vVendasKeyPrefix)Devolucoes_$(vYear).parquet';
+    LET vDevolucoesFile = '$(vS3Root)$(vDevolucoesKey)';
+    CALL CheckKeyExists('$(vDevolucoesKey)');
+
+    IF vKeyExists > 0 THEN
+
+        DatesDevolucao:
+        NOCONCATENATE
+        LOAD Data_Devolucao as DataRef
+        FROM [$(vDevolucoesFile)]
+        (parquet);
+
+        Concatenate (AllDates)
+        LOAD DataRef RESIDENT DatesDevolucao;
+
+        DROP TABLE DatesDevolucao;
+
+    ENDIF
+
+NEXT vYear
+
+CalcMinMax:
+NOCONCATENATE
+LOAD Min(DataRef) as MinD, Max(DataRef) as MaxD
+RESIDENT AllDates;
+
+LET vMinDateNum = Peek('MinD', 0, 'CalcMinMax');
+LET vMaxDateNum = Peek('MaxD', 0, 'CalcMinMax');
+
+DROP TABLES AllDates, CalcMinMax;
+
+DatesBase:
+NOCONCATENATE
+LOAD Date($(vMinDateNum) + RowNo() - 1) as key_data
+AUTOGENERATE $(vMaxDateNum) - $(vMinDateNum) + 1;
+
+dim_tempo:
+NOCONCATENATE
+LOAD
+    key_data,
+    key_data as gen_data,
+    Year(key_data) as nm_ano,
+    Ceil(Month(key_data) / 3) as nm_trimestre,
+    Month(key_data) as nm_mes,
+    Date(key_data, 'MMMM') as str_nome_mes,
+    Date(key_data, 'dddd') as str_dia_semana
+RESIDENT DatesBase;
+
+DROP TABLE DatesBase;
+
+STORE dim_tempo INTO [$(vGoldPath)dim_tempo.parquet] (parquet);
+DROP TABLE dim_tempo;
+
+// ---------------------------------------------------------------------
+// 5. fact_vendas + fact_remessas, por ano
+// ---------------------------------------------------------------------
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vVendasKey = '$(vVendasKeyPrefix)Vendas_$(vYear).parquet';
+    LET vVendasFile = '$(vS3Root)$(vVendasKey)';
+    CALL CheckKeyExists('$(vVendasKey)');
+
+    IF vKeyExists > 0 THEN
+
+        TRACE Construindo fact_vendas / fact_remessas para o ano $(vYear);
+
+        Vendas_Gold_Y:
+        NOCONCATENATE
+        LOAD *
+        FROM [$(vVendasFile)]
+        (parquet);
+
+        // -- fact_vendas: grão = PedItem (uma linha por item de pedido) --
+        fact_vendas_Y:
+        NOCONCATENATE
+        LOAD
+            Pedido_ID as key_pedido,
+            PedItem_ID as key_peditem,
+            Produto_ID as key_produto,
+            Cliente_ID as key_cliente,
+            Vendedor_ID as key_vendedor,
+            Date(Data_Venda) as key_data,
+            Cancelado as flg_cancelado,
+            1 as nm_vendas,
+            Qtde_Venda as nm_qtde_venda,
+            Valor_Venda as nm_valor_venda,
+            Valor_Custo as nm_valor_custo,
+            Valor_Frete as nm_valor_frete,
+            Valor_Margem as nm_valor_margem,
+            Perc_Frete as nm_perc_frete
+        RESIDENT Vendas_Gold_Y;
+
+        STORE fact_vendas_Y INTO [$(vGoldPath)fact_vendas_$(vYear).parquet] (parquet);
+        DROP TABLE fact_vendas_Y;
+
+        // -- fact_remessas: grão = Pedido (uma linha por pedido enviado) --
+        // Só pedidos com Data_Remessa preenchida; medidas agregadas
+        // (somadas) pelos itens do pedido, com sufixo "_remessas".
+        fact_remessas_Y:
+        NOCONCATENATE
+        LOAD
+            Pedido_ID as key_pedido,
+            Only(Cliente_ID) as key_cliente,
+            Only(Vendedor_ID) as key_vendedor,
+            Date(Data_Remessa) as key_data,
+            1 as nm_remessas,
+            Sum(Qtde_Venda) as nm_qtde_remessas,
+            Sum(Valor_Venda) as nm_valor_remessas,
+            Sum(Valor_Custo) as nm_custo_remessas,
+            Sum(Valor_Frete) as nm_frete_remessas,
+            Sum(Valor_Margem) as nm_margem_remessas,
+            Avg(Perc_Frete) as nm_perc_frete_remessas,
+            (Date(Data_Remessa) - Only(Data_Venda)) as nm_leadtime_remessa
+        RESIDENT Vendas_Gold_Y
+        WHERE Not IsNull(Data_Remessa)
+        GROUP BY Pedido_ID, Data_Remessa;
+
+        STORE fact_remessas_Y INTO [$(vGoldPath)fact_remessas_$(vYear).parquet] (parquet);
+        DROP TABLE fact_remessas_Y;
+
+        DROP TABLE Vendas_Gold_Y;
+
+    ENDIF
+
+NEXT vYear
+
+// ---------------------------------------------------------------------
+// 6. fact_devolucoes, por ano
+// Uma devolução pode referenciar um Pedido feito num ano anterior ao da
+// própria devolução, então key_cliente/key_vendedor e a Data_Venda
+// original (necessária pra nm_leadtime_devolucao) não podem ser resolvidos
+// a partir do Vendas de um único ano - são resolvidos via uma busca por
+// Pedido_ID construída uma vez a partir de todo ano disponível de Vendas
+// (silver002).
+// ---------------------------------------------------------------------
+TRACE Construindo busca de Pedido (Cliente/Vendedor/Data_Venda) para fact_devolucoes;
+
+PedidoLookup:
+NOCONCATENATE
+LOAD * INLINE [
+Pedido_ID
+];
+
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vVendasKey = '$(vVendasKeyPrefix)Vendas_$(vYear).parquet';
+    LET vVendasFile = '$(vS3Root)$(vVendasKey)';
+    CALL CheckKeyExists('$(vVendasKey)');
+
+    IF vKeyExists > 0 THEN
+
+        PedidoLookup_Y:
+        NOCONCATENATE
+        LOAD DISTINCT
+            Pedido_ID,
+            Cliente_ID,
+            Vendedor_ID,
+            Data_Venda
+        FROM [$(vVendasFile)]
+        (parquet);
+
+        Concatenate (PedidoLookup)
+        LOAD * RESIDENT PedidoLookup_Y;
+
+        DROP TABLE PedidoLookup_Y;
+
+    ENDIF
+
+NEXT vYear
+
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vDevolucoesKey = '$(vVendasKeyPrefix)Devolucoes_$(vYear).parquet';
+    LET vDevolucoesFile = '$(vS3Root)$(vDevolucoesKey)';
+    CALL CheckKeyExists('$(vDevolucoesKey)');
+
+    IF vKeyExists > 0 THEN
+
+        TRACE Construindo fact_devolucoes para o ano $(vYear);
+
+        Devolucoes_Gold_Y:
+        NOCONCATENATE
+        LOAD *
+        FROM [$(vDevolucoesFile)]
+        (parquet);
+
+        Left Join (Devolucoes_Gold_Y)
+        LOAD * RESIDENT PedidoLookup;
+
+        // -- fact_devolucoes: grão = Devolucao_Item (uma linha por linha devolvida) --
+        fact_devolucoes_Y:
+        NOCONCATENATE
+        LOAD
+            Devolucao_ID as key_devolucao,
+            Devolucao_Item_ID as key_devolucao_item,
+            Pedido_ID as key_pedido,
+            PedItem_ID as key_peditem,
+            Produto_ID as key_produto,
+            Cliente_ID as key_cliente,
+            Vendedor_ID as key_vendedor,
+            Date(Data_Devolucao) as key_data,
+            Observacao as str_observacao,
+            1 as nm_devolucoes,
+            Qtde_Devolvida as nm_qtde_devolvida,
+            Valor_Devolucao as nm_valor_devolucao,
+            (Date(Data_Devolucao) - Date(Data_Venda)) as nm_leadtime_devolucao
+        RESIDENT Devolucoes_Gold_Y;
+
+        STORE fact_devolucoes_Y INTO [$(vGoldPath)fact_devolucoes_$(vYear).parquet] (parquet);
+        DROP TABLE fact_devolucoes_Y;
+
+        DROP TABLE Devolucoes_Gold_Y;
+
+    ENDIF
+
+NEXT vYear
+
+DROP TABLE PedidoLookup;
+DROP TABLE AllObjects;
+
+TRACE trf005_gold_star_schema concluído;
