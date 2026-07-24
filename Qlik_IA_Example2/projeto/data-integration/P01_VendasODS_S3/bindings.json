@@ -3,7 +3,7 @@
     "cloudStagingConnection": null,
     "platformConnection": null,
     "projectName": "P01_VendasODS_S3",
-    "task.vendasods-susp.folder": "materlake/landing",
+    "task.vendasods-susp.folder": "datalake/landing",
     "task.vendasods-susp.sourceConnection": "{{id(connection, VendasODS_Data.di-oracle)}}",
     "task.vendasods-susp.targetConnection": "{{id(connection, VendasODS_Data.di-s3)}}",
     "task.vendasods-susp:null$_$VENDASODS.schema": "VENDASODS",

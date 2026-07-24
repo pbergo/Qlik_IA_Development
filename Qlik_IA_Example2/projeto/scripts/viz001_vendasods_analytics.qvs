@@ -9,7 +9,7 @@
 //          ponte link_fato específica do Qlik NO MOMENTO DA CARGA, e então
 //          remove as FKs de dimensão de volta dos próprios fatos.
 // Tags: Visualization, VendasODS
-// Origem: camada Gold (materlake/gold/, da-s3) - estrela Kimball agnóstica
+// Origem: camada Gold (datalake/gold/, da-s3) - estrela Kimball agnóstica
 //         de plataforma, ver ModeloDimensional/modelo_dimensional_kimball.png
 //
 // Por que construir o link_fato aqui em vez de no Gold:
@@ -30,9 +30,9 @@
 //   lado Qlik. Resultado: nenhuma dimensão é associada a mais de uma
 //   tabela, e nenhum par de fatos compartilha um campo-chave.
 //
-// Descoberta de arquivo (materlake/): o conector S3 V2 desse tenant não
+// Descoberta de arquivo (datalake/): o conector S3 V2 desse tenant não
 //          suporta carga via wildcard, e ErrorMode=0 não suprime "arquivo
-//          não encontrado" para um caminho literal sob materlake/
+//          não encontrado" para um caminho literal sob datalake/
 //          (confirmado em teste ao vivo durante a construção do str001) -
 //          então toda checagem de existência de arquivo de ano passa pelo
 //          mesmo mecanismo 'da-s3-metadata' (ListObjects, prefix='' +
@@ -41,13 +41,13 @@
 ///////////////////////////////////////////////////////////////////////////
 
 SET vS3Root = 'lib://VendasODS_Shared:da-s3/';
-SET vGoldKeyPrefix = 'materlake/gold/';
+SET vGoldKeyPrefix = 'datalake/gold/';
 SET vGoldPath = '$(vS3Root)$(vGoldKeyPrefix)';
 LET vMinFactYear = 2024;
 LET vMaxFactYear = Year(Today());
 
 // ---------------------------------------------------------------------
-// Descoberta de arquivo (materlake/) - mesmo padrão do
+// Descoberta de arquivo (datalake/) - mesmo padrão do
 // str001_bronze_vendasods: lista o bucket inteiro uma vez com prefix=''
 // via 'da-s3-metadata', mantém em memória, filtra do lado do cliente.
 // ---------------------------------------------------------------------

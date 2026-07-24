@@ -10,16 +10,16 @@
 //          mais adiante por fact_remessas / cálculo de leadtime
 //          (Data_Remessa - Data_Venda).
 // Tags: Transform, VendasODS
-// Layer: Silver (materlake/silver/silver002)
+// Layer: Silver (datalake/silver/silver002)
 //
-// Ambos silver001 (origem) e silver002 (destino) ficam sob materlake/ -
+// Ambos silver001 (origem) e silver002 (destino) ficam sob datalake/ -
 //          nem um nem outro ficam mais na raiz do bucket que a versão
 //          antiga deste script usava.
 //
 // Lógica de skip: cada ano aqui só é reconstruído se Pedidos_YYYY.parquet
 //          ou PedItem_YYYY.parquet (silver001) realmente mudaram desde a
 //          última vez que ESTE script rodou, rastreado por um checkpoint
-//          próprio (materlake/silver/silver002/_checkpoint_trf003.parquet,
+//          próprio (datalake/silver/silver002/_checkpoint_trf003.parquet,
 //          guardando o maior _change_timestamp já consumido) comparado
 //          contra o Max(_change_timestamp) lido de Pedidos_YYYY/PedItem_YYYY.
 //          _change_timestamp se origina no Bronze (str001) e é carregada
@@ -32,28 +32,28 @@
 //          despercebida. Se Vendas_YYYY.parquet ainda não existe pra um
 //          ano, ele é sempre (re)construído independente do checkpoint.
 //
-// Descoberta de arquivo (materlake/): o conector S3 V2 desse tenant não
+// Descoberta de arquivo (datalake/): o conector S3 V2 desse tenant não
 //          suporta carga via wildcard, e ErrorMode=0 não suprime "arquivo
-//          não encontrado" para um caminho literal sob materlake/
+//          não encontrado" para um caminho literal sob datalake/
 //          (confirmado em teste ao vivo durante a construção do str001) -
 //          então toda checagem de existência passa pelo mesmo mecanismo
 //          'da-s3-metadata' (ListObjects, prefix='' + filtragem exata do
 //          lado do cliente) que o str001 usa, em vez do probe clássico
 //          ProbeFileExists (que funcionava na raiz antiga, mas não sob
-//          materlake/).
+//          datalake/).
 ///////////////////////////////////////////////////////////////////////////
 
 SET vSourceName = 'vendasods';
 SET vS3Root = 'lib://VendasODS_Shared:da-s3/';
-SET vSilverKeyPrefix = 'materlake/silver/silver001/';
+SET vSilverKeyPrefix = 'datalake/silver/silver001/';
 SET vSilverPath = '$(vS3Root)$(vSilverKeyPrefix)';
-SET vVendasKeyPrefix = 'materlake/silver/silver002/';
+SET vVendasKeyPrefix = 'datalake/silver/silver002/';
 SET vVendasPath = '$(vS3Root)$(vVendasKeyPrefix)';
 LET vMinYear = Year(Today()) - 10;
 LET vMaxYear = Year(Today());
 
 // ---------------------------------------------------------------------
-// Descoberta de arquivo (materlake/) - mesmo padrão do
+// Descoberta de arquivo (datalake/) - mesmo padrão do
 // str001_bronze_vendasods: lista o bucket inteiro uma vez com prefix=''
 // via 'da-s3-metadata', mantém em memória, filtra do lado do cliente.
 // ---------------------------------------------------------------------

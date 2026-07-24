@@ -53,8 +53,8 @@ Referência: [implantacao/data-connections/da-s3.md](../../implantacao/data-conn
 | `VendasODS_Shared:da-s3-metadata` | `AmazonS3ConnectorV2` (web connector) | `us-west-2` | `qmi-bucket-68b823035b598a2f0f6af8f6` |
 
 - Usadas em cascata por todas as camadas:
-  - `str001` grava a camada Bronze (`materlake/bronze/`).
-  - `trf001`–`trf005` leem/gravam Silver e Gold (`materlake/silver/silver001/`, `materlake/gold/`).
+  - `str001` grava a camada Bronze (`datalake/bronze/`).
+  - `trf001`–`trf005` leem/gravam Silver e Gold (`datalake/silver/silver001/`, `datalake/gold/`).
   - `viz001` lê a camada Gold para análise.
 - As credenciais AWS associadas a essas duas conexões (`Access Key` / `Secret Key`, ver `$di-s3-accesskey$` / `$di-s3-secretkey$` em [implantacao/data-connections/da-s3.md](../../implantacao/data-connections/da-s3.md)) precisam estar válidas e com permissão de leitura/escrita no bucket e nos prefixos acima. Sem isso, `str001` (que grava) e as demais etapas (que leem/gravam) falham.
 

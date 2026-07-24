@@ -1,16 +1,16 @@
 # Guia de Instalação — Projeto VendasODS
 
-> Este guia assume que os pré-requisitos já foram atendidos — ver [Guia_Implementacao_Novo_Tenant.md](Guia_Implementacao_Novo_Tenant.md) antes de seguir os passos abaixo (licenciamento do tenant, papéis de usuário, gateway, bucket S3, ambiente com Git/`qlik-cli`/MCP configurados).
+> Este guia assume que os pré-requisitos já foram atendidos — ver [Guia_Implementacao_Novo_Tenant.md](Guia_Implementacao_Novo_Tenant.md) antes de seguir os passos abaixo (licenciamento do tenant, papéis de usuário, gateway, bucket S3, ambiente com `qlik-cli`/MCP configurados e os arquivos do projeto disponíveis localmente — via Git ou download ZIP).
 
 ---
 
 ## Visão geral da sequência
 
-1. Preparar o ambiente local (Git, `qlik-cli`, MCP)
+1. Preparar o ambiente local (`qlik-cli`, MCP)
 2. Preparar a fonte Oracle (usuário, tabelas e dados de exemplo)
 3. *(manual)* Instalar e registrar o Data Movement Gateway
 4. Criar os Spaces
-5. Criar as conexões de dados
+5. Criar as conexões de dados (`di-oracle`/`di-s3` *manual*, ver nota no passo 5)
 6. Importar o projeto de Data Integration (CDC)
 7. Criar os apps e carregar os scripts
 8. Construir o conteúdo analítico do `viz001` (via MCP)
@@ -21,13 +21,19 @@
 
 ## 1. Preparar o ambiente local
 
+Obter os arquivos do projeto por uma das duas formas (o restante do guia não depende de qual foi usada):
+
+- **Git** (mantém histórico e facilita `git pull` de atualizações futuras): `git clone https://github.com/pedrobergo/Qlik_IADataEngineering.git`
+- **Download ZIP** (não exige Git instalado): baixar o ZIP do repositório (GitHub → Code → Download ZIP) e extrair localmente
+
 ```
-git clone https://github.com/pedrobergo/Qlik_IADataEngineering.git
 qlik context create <nome-do-contexto> --server https://<tenant-novo>.qlikcloud.com --api-key <api-key>
 qlik context use <nome-do-contexto>
 ```
 
-Registrar o servidor MCP Qlik apontando para o mesmo tenant (ex. via `claude mcp add`), autenticado com a mesma API key.
+Registrar o servidor MCP Qlik apontando para o mesmo tenant. Em ambiente VS Code + conta claude.ai (caminho testado em deploy real), isso é feito via **conector personalizado nas configurações do claude.ai** (não pela CLI `claude mcp add`) — e exige reiniciar o VS Code para o conector aparecer disponível. Passo a passo detalhado: [Guia_Implementacao_Novo_Tenant.md §2.7](Guia_Implementacao_Novo_Tenant.md#27-integração-mcp-configurada).
+
+> Ver [Guia_Implementacao_Novo_Tenant.md §4](Guia_Implementacao_Novo_Tenant.md#4-segredos-e-credenciais-a-preparar-checklist) para a prática recomendada de coletar as credenciais (API key, senha do Oracle, chaves do S3) uma única vez no início e registrá-las em [secrets/secrets.env](secrets/secrets.env).
 
 ## 2. Preparar a fonte Oracle (usuário, tabelas e dados de exemplo)
 
@@ -35,11 +41,14 @@ Antes de instalar o gateway e criar a conexão `di-oracle`, o schema `VENDASODS`
 
 | Ordem | Script | O que faz | Executar como |
 |---|---|---|---|
-| 1 | [base-dados/cdc_config_vendasods.sql](base-dados/cdc_config_vendasods.sql) | Cria o usuário `vendasods` e concede os grants exigidos pelo conector Oracle do Data Movement Gateway (leitura de redo log/LogMiner, dicionário de dados) + os grants de DDL (`CREATE ANY TABLE`, `CREATE TRIGGER`, `CREATE SEQUENCE`, etc.) usados pelo script seguinte | Usuário com privilégio de `GRANT` (ex. `system`) |
-| 2 | [base-dados/create_database_vendasods.sql](base-dados/create_database_vendasods.sql) | Cria as 13 tabelas, as 15 Foreign Keys, o auto increment (`SEQUENCE` + `TRIGGER`, equivalente ao `AUTO_INCREMENT` da origem MySQL legada) e as demais constraints (`UNIQUE`, `CHECK`) | `vendasods` |
-| 3 | [base-dados/vendasods_oracle_data.sql](base-dados/vendasods_oracle_data.sql) | Popula as tabelas com uma cópia dos dados de exemplo (`INSERT INTO`, ~253 mil linhas, já na ordem que respeita as FKs) | `vendasods` |
+| 1 | [base-dados/oracle_instance_cdc_prereqs_vendasods.sql](base-dados/oracle_instance_cdc_prereqs_vendasods.sql) | Habilita supplemental logging mínimo (online) e verifica/orienta habilitar o modo **ARCHIVELOG** (interativo, derruba conexões) — pré-requisitos de **instância** para o LogMiner do Data Movement Gateway, fora do escopo dos scripts seguintes | `sysdba` (ex. `sqlplus sys/<senha>@//<host>:<porta>/<service> as sysdba`) |
+| 2 | [base-dados/cdc_config_vendasods.sql](base-dados/cdc_config_vendasods.sql) | Cria o usuário `vendasods` e concede os grants exigidos pelo conector Oracle do Data Movement Gateway (leitura de redo log/LogMiner, dicionário de dados) + os grants de DDL (`CREATE ANY TABLE`, `CREATE TRIGGER`, `CREATE SEQUENCE`, etc.) usados pelo script seguinte | Usuário com privilégio de `GRANT` (ex. `system`) |
+| 3 | [base-dados/create_database_vendasods.sql](base-dados/create_database_vendasods.sql) | Cria as 13 tabelas, as 15 Foreign Keys, o auto increment (`SEQUENCE` + `TRIGGER`, equivalente ao `AUTO_INCREMENT` da origem MySQL legada) e as demais constraints (`UNIQUE`, `CHECK`) | `vendasods` |
+| 4 | [base-dados/vendasods_oracle_data.sql](base-dados/vendasods_oracle_data.sql) | Popula as tabelas com uma cópia dos dados de exemplo (`INSERT INTO`, ~253 mil linhas, já na ordem que respeita as FKs) | `vendasods` |
 
 > Nota: `ALTER TABLE ... MODIFY ... AS IDENTITY` não funciona para converter uma coluna já existente em identity nativo do Oracle (`ORA-30673`, mesmo em tabela vazia) — por isso o auto increment usa o padrão clássico `SEQUENCE` + `TRIGGER`. Ver comentários no próprio `create_database_vendasods.sql`.
+
+> **Sobre o script 1 (pré-requisitos de instância)**: o trecho de supplemental logging é seguro de rodar direto (operação online). Já o bloco de ARCHIVELOG **deve ser executado interativamente**, linha a linha, em uma sessão `sqlplus` local/direta no host do banco — o `SHUTDOWN`/`STARTUP` derruba todas as conexões da instância, então não deve ser disparado por uma ferramenta remota automatizada. Erro observado em deploy real quando o supplemental logging não estava habilitado: `[SOURCE_UNLOAD]E: Minimal database supplemental logging level is not enabled [1020418]`.
 
 ## 3. Instalar e registrar o Data Movement Gateway *(manual)*
 
@@ -52,14 +61,16 @@ Baixar o instalador no tenant novo (Management Console → Data Gateways), insta
 
 ## 5. Criar as conexões de dados
 
-| Nome | Tipo | Space | Detalhe |
-|---|---|---|---|
-| `di-oracle` | Fonte (Data Integration) | `VendasODS_Data` | Server `<host>:1521/<service>`, schema `VENDASODS`, via `QDMG_VendasODS` |
-| `di-s3` | Destino (Data Integration) | `VendasODS_Data` | Amazon S3, par de chaves, bucket novo |
-| `da-s3` | Storage (Analytics) | `VendasODS_Shared` | `File_AmazonS3ConnectorV2`, mesmo bucket, usado pelos apps para ler/gravar parquet |
-| `da-s3-metadata` | Storage/ListObjects (Analytics) | `VendasODS_Shared` | `AmazonS3ConnectorV2`, usado para listagem de objetos |
+| Nome | Tipo | Space | Detalhe | Criação |
+|---|---|---|---|---|
+| `di-oracle` | Fonte (Data Integration) | `VendasODS_Data` | Server `<host>:1521/<service>`, schema `VENDASODS`, via `QDMG_VendasODS` | **Manual (UI)** |
+| `di-s3` | Destino (Data Integration) | `VendasODS_Data` | Amazon S3, par de chaves, bucket novo | **Manual (UI)** |
+| `da-s3` | Storage (Analytics) | `VendasODS_Shared` | `File_AmazonS3ConnectorV2`, mesmo bucket, usado pelos apps para ler/gravar parquet | `qlik-cli`/API |
+| `da-s3-metadata` | Storage/ListObjects (Analytics) | `VendasODS_Shared` | `AmazonS3ConnectorV2`, usado para listagem de objetos | `qlik-cli`/API |
 
 > Nota do script `str001`: o conector S3 V2 não suporta wildcard em `LOAD FROM`/`FILELIST()`. O padrão usado é listar o bucket inteiro via `da-s3-metadata` com `prefix=''`, manter em memória, e filtrar do lado do Qlik com `LIKE`. Validar se esse comportamento se repete no tenant novo antes de assumir que o workaround ainda é necessário.
+
+> **As duas conexões `di-*` são manuais** *(assim como o item 3, instalação do gateway)*: tanto `di-oracle` quanto `di-s3` precisam ser criadas pelo usuário via UI — Management Console/Hub → seção **Data Integration → Connections** (não **Data Analytics**, que é onde ficam as conexões `da-*`, essas sim automatizáveis via `qlik-cli`/API). Não podem ser feitas pelo Claude via `qlik-cli`/API.
 
 ## 6. Importar o projeto de Data Integration (CDC)
 
@@ -75,7 +86,7 @@ Antes do import, ajustar [bindings.json](../projeto/data-integration/P01_VendasO
 |---|---|---|
 | `task.vendasods-susp.sourceConnection` | `{{id(connection, VendasODS_Data.di-oracle)}}` | ID da conexão `di-oracle` do tenant novo |
 | `task.vendasods-susp.targetConnection` | `{{id(connection, VendasODS_Data.di-s3)}}` | ID da conexão `di-s3` do tenant novo |
-| `task.vendasods-susp.folder` | `materlake/landing` | Manter (prefixo esperado por `str001`) |
+| `task.vendasods-susp.folder` | `datalake/landing` | Manter (prefixo esperado por `str001`) |
 | `...VENDASODS.schema(Pattern)` | `VENDASODS` | Schema Oracle do ambiente novo |
 
 Tabelas replicadas: `Cidades, Categoria, Clientes, Departamento, Devolucao_Item, Devolucoes, Gerentes, PedItem, Pedidos, Produtos, TabFrete, TabPreco, Vendedores`.
@@ -105,15 +116,19 @@ Construir sheets, gráficos e master items (dimensões/medidas) usando as ferram
 Importar/recriar a partir de [../projeto/automation/VendasODS_Pipeline_Execution.json](../projeto/automation/VendasODS_Pipeline_Execution.json), ajustando:
 - Os 7 `snippet_guid` (Do Reload) para os **novos App IDs** criados no passo 7
 - O `spaceId` para o novo `VendasODS_Shared`
-- Autorizar a conexão OAuth do conector "Qlik Cloud Services" dentro do editor da Automation, com um usuário que tenha permissão de reload nos 7 apps
+- Autorizar a conexão OAuth do conector "Qlik Cloud Services" dentro do editor da Automation, com um usuário que tenha permissão de reload nos 7 apps *(verificar se é realmente necessário neste ambiente — ver nota abaixo)*
 - Revisar o schedule (`RRULE:FREQ=MINUTELY;INTERVAL=15`, timezone `America/Sao_Paulo`) e `maxConcurrentRuns: 1`
 - Detalhes completos: [../projeto/automation/VendasODS_Pipeline_Execution_Requisitos_Tecnicos.md](../projeto/automation/VendasODS_Pipeline_Execution_Requisitos_Tecnicos.md)
+
+> **Nota sobre a autorização OAuth (achado em deploy real, 2026-07-23)**: neste ambiente a Automation rodou com sucesso já no primeiro disparo agendado, sem exigir nenhuma autorização OAuth manual no editor. Não está confirmado se isso vale sempre (pode depender de o usuário/credencial já estar previamente autorizado no espaço, do tipo de autenticação, ou de outra condição não identificada). Tratar o passo acima como **algo a verificar**, não como bloqueante garantido — só seguir o passo manual de autorização se a Automation efetivamente falhar por falta dela.
 
 ## 10. Validação / smoke test
 
 - [ ] Schema `VENDASODS` no Oracle fonte com as 13 tabelas, FKs e dados de exemplo (scripts do passo 2 rodaram sem erro)
-- [ ] Tarefa CDC do Data Integration rodando e gravando arquivos em `materlake/landing/` no bucket novo
-- [ ] Reload manual de `str001` conclui sem erro e grava `materlake/bronze/*.parquet`
+- [ ] Supplemental logging mínimo e modo ARCHIVELOG habilitados na instância Oracle (ver nota no passo 2) — sem isso a tarefa CDC falha com `ORA...1020418 Minimal database supplemental logging level is not enabled`
+- [ ] Tarefa CDC do Data Integration rodando e gravando arquivos em `datalake/landing/` no bucket novo (full load inicial)
+- [ ] **CDC incremental de fato capturando mudanças** (não só o full load): fazer um INSERT/UPDATE/DELETE de teste em uma tabela do schema `VENDASODS` na fonte Oracle e confirmar que a tarefa reflete isso — `totalProcessedCount` (ou métrica equivalente) da tarefa sai de 0/estável e um novo arquivo de mudança aparece em `datalake/landing/vendasods.<Tabela>__ct/`. Achado em deploy real (2026-07-23): o full load funcionou, mas nenhuma mudança incremental tinha sido processada (`totalProcessedCount: 0`) até essa checagem ser feita — sem ela, um CDC "travado" pode passar despercebido. Ferramenta pronta para gerar esse tráfego de teste: [../projeto/scripts/GenerateData.py](../projeto/scripts/GenerateData.py) (menu "2. Atualiza CDC", "3. Atualizar Data Remessa", "4. Cancelar Pedidos", "5. Gera Devoluções", "7. Apagar Registros" — cobrem INSERT/UPDATE/DELETE contra o schema `vendasods` via `oracledb`).
+- [ ] Reload manual de `str001` conclui sem erro e grava `datalake/bronze/*.parquet`
 - [ ] Reload manual de `trf001`→`trf005` conclui em cascata sem erro
 - [ ] `viz001` reload conclui e as visualizações exibem dados
 - [ ] Rodar a Automation manualmente uma vez (`qlik automation run create`) e conferir `status: finished` sem erro em nenhuma etapa
@@ -142,7 +157,7 @@ docker run -d --name oracle-xe-vendasods -p 1521:1521 ^
 - `-v` monta um volume local para persistir os data files entre restarts do container (sem isso, os dados somem se o container for removido).
 - Acompanhar o boot (a primeira inicialização demora alguns minutos, criando o PDB): `docker logs -f oracle-xe-vendasods` até aparecer `DATABASE IS READY TO USE!`.
 - Testar a conexão: `sqlplus system/<senha>@//localhost:1521/XEPDB1`.
-- Com o container pronto, seguir o passo 2 normalmente: rodar [cdc_config_vendasods.sql](base-dados/cdc_config_vendasods.sql) como `system` (senha = `ORACLE_PASSWORD` definida acima) e depois [create_database_vendasods.sql](base-dados/create_database_vendasods.sql) + [vendasods_oracle_data.sql](base-dados/vendasods_oracle_data.sql) como `vendasods`.
+- Com o container pronto, seguir o passo 2 normalmente, na ordem da tabela: [oracle_instance_cdc_prereqs_vendasods.sql](base-dados/oracle_instance_cdc_prereqs_vendasods.sql) como `sys ... as sysdba` (a imagem `oracle-xe` não vem com supplemental logging nem ARCHIVELOG habilitados por padrão), depois [cdc_config_vendasods.sql](base-dados/cdc_config_vendasods.sql) como `system` (senha = `ORACLE_PASSWORD` definida acima) e por fim [create_database_vendasods.sql](base-dados/create_database_vendasods.sql) + [vendasods_oracle_data.sql](base-dados/vendasods_oracle_data.sql) como `vendasods`.
 
 > Nota de licenciamento: o Oracle Database XE em si é gratuito, mas sujeito aos termos de licença da Oracle (Oracle Free Use Terms), aceitos implicitamente ao usar a imagem. Não é uma licença comercial completa do Oracle Database — adequado para dev/homologação/demo, não para produção com SLA.
 

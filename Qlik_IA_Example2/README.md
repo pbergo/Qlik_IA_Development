@@ -66,6 +66,7 @@ flowchart TD
 │   │   └── di-s3.md                   --> Conexão de Data Integration com o destino S3 (landing)
 │   │
 │   └── base-dados/
+│       ├── oracle_instance_cdc_prereqs_vendasods.sql --> Supplemental logging + ARCHIVELOG (sysdba, roda primeiro)
 │       ├── cdc_config_vendasods.sql       --> Usuário Oracle 'vendasods' + grants (CDC e DDL)
 │       ├── create_database_vendasods.sql  --> Criação das tabelas, FKs, auto increment e constraints
 │       └── vendasods_oracle_data.sql      --> Cópia dos dados (INSERT INTO) do schema VENDASODS
@@ -98,7 +99,9 @@ flowchart TD
         ├── trf003_silver_vendas.qvs           --> Silver
         ├── trf004_silver_devolucoes_consolidado.qvs --> Silver
         ├── trf005_gold_star_schema.qvs        --> Gold (star schema)
-        └── viz001_vendasods_analytics.qvs     --> App de análise
+        ├── viz001_vendasods_analytics.qvs     --> App de análise
+        ├── GenerateData.py                    --> GUI (tkinter) gera INSERT/UPDATE/DELETE de teste no Oracle fonte (valida CDC incremental)
+        └── requirements.txt                   --> Dependências do GenerateData.py (oracledb, PyYAML)
 ```
 
 ## Documentação

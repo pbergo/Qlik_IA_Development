@@ -13,3 +13,9 @@ A comprehensive repository demonstrating how to leverage Artificial Intelligence
 - [Example 1: Basic Sales Data Pipeline](./Qlik_IA_Example/README.md) — A foundational data engineering example using MySQL as source, implementing medallion architecture (landing, bronze, silver, gold layers) with data stored in Amazon S3 and analytics in Qlik Cloud.
 
 - [Example 2: CDC-Based Advanced Pipeline](./Qlik_IA_Example2/README.md) — An extended data engineering implementation using Change Data Capture (CDC) for incremental data ingestion, handling complex transformations including consolidated fact tables, and establishing comprehensive development standards for enterprise-scale pipelines.
+
+### How to use 
+
+Start installing Claude Code, then add these directory to it and just ask: How to implement Project2?
+
+

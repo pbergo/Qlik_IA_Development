@@ -9,11 +9,11 @@
 //          Para cada tabela:
 //            - Carga INICIAL: lê todo arquivo Parquet de carga completa
 //              (pode haver mais de um) em
-//              materlake/landing/vendasods.<Tabela>/ e grava como snapshot
-//              inicial do Bronze em materlake/bronze/<Tabela>.parquet (sem
+//              datalake/landing/vendasods.<Tabela>/ e grava como snapshot
+//              inicial do Bronze em datalake/bronze/<Tabela>.parquet (sem
 //              subpasta 'vendasods' e sem as colunas header__* no Bronze).
 //            - INCREMENTAL: lê todo arquivo de mudança em
-//              materlake/landing/vendasods.<Tabela>__ct/<lote-datado>/,
+//              datalake/landing/vendasods.<Tabela>__ct/<lote-datado>/,
 //              que carrega 8 colunas de metadados header__* mais
 //              header__change_oper com valores I (insert), U (update,
 //              imagem completa após a mudança), D (delete) e B (imagem
@@ -54,7 +54,7 @@
 //          chave que se sabe existir.
 //
 // Idempotência: cada tabela mantém um arquivo de checkpoint
-//          materlake/bronze/_checkpoint_<Tabela>.parquet guardando o maior
+//          datalake/bronze/_checkpoint_<Tabela>.parquet guardando o maior
 //          header__change_seq já aplicado. Cada execução só lê linhas de
 //          mudança com change_seq estritamente maior, então rodar o
 //          script de novo (ou os arquivos __ct permanecerem na Landing
@@ -124,13 +124,13 @@
 //          (o JOIN volta a casar corretamente).
 //
 // Tags: Storage, VendasODS
-// Layer: Bronze (materlake/bronze)
+// Layer: Bronze (datalake/bronze)
 ///////////////////////////////////////////////////////////////////////////
 
 SET vSourceName = 'vendasods';
 SET vS3Root = 'lib://VendasODS_Shared:da-s3/';
-SET vBronzeKeyPrefix = 'materlake/bronze/';
-SET vLandingKeyPrefix = 'materlake/landing/';
+SET vBronzeKeyPrefix = 'datalake/bronze/';
+SET vLandingKeyPrefix = 'datalake/landing/';
 SET vBronzePath = '$(vS3Root)$(vBronzeKeyPrefix)';
 SET vLandingRoot = '$(vS3Root)$(vLandingKeyPrefix)';
 LET vMinYear = Year(Today()) - 10;

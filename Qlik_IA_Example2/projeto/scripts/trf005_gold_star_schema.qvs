@@ -41,12 +41,12 @@
 // Gold reutilizável por qualquer consumidor, enquanto a adaptação
 // específica do Qlik fica só onde é realmente necessária.
 // Tags: Transform, VendasODS
-// Layer: Gold (materlake/gold/)
+// Layer: Gold (datalake/gold/)
 // Origem: Silver silver001 (cadastros) + silver002 (Vendas / Devolucoes, por ano)
 //
-// Descoberta de arquivo (materlake/): o conector S3 V2 desse tenant não
+// Descoberta de arquivo (datalake/): o conector S3 V2 desse tenant não
 //          suporta carga via wildcard, e ErrorMode=0 não suprime "arquivo
-//          não encontrado" para um caminho literal sob materlake/
+//          não encontrado" para um caminho literal sob datalake/
 //          (confirmado em teste ao vivo durante a construção do str001) -
 //          então toda checagem de existência (Vendas_YYYY/Devolucoes_YYYY
 //          em silver002) passa pelo mesmo mecanismo 'da-s3-metadata'
@@ -55,17 +55,17 @@
 ///////////////////////////////////////////////////////////////////////////
 
 SET vS3Root = 'lib://VendasODS_Shared:da-s3/';
-SET vSilverKeyPrefix = 'materlake/silver/silver001/';
+SET vSilverKeyPrefix = 'datalake/silver/silver001/';
 SET vSilverPath = '$(vS3Root)$(vSilverKeyPrefix)';
-SET vVendasKeyPrefix = 'materlake/silver/silver002/';
+SET vVendasKeyPrefix = 'datalake/silver/silver002/';
 SET vVendasPath = '$(vS3Root)$(vVendasKeyPrefix)';
-SET vGoldKeyPrefix = 'materlake/gold/';
+SET vGoldKeyPrefix = 'datalake/gold/';
 SET vGoldPath = '$(vS3Root)$(vGoldKeyPrefix)';
 LET vMinYear = Year(Today()) - 10;
 LET vMaxYear = Year(Today());
 
 // ---------------------------------------------------------------------
-// Descoberta de arquivo (materlake/) - mesmo padrão do
+// Descoberta de arquivo (datalake/) - mesmo padrão do
 // str001_bronze_vendasods: lista o bucket inteiro uma vez com prefix=''
 // via 'da-s3-metadata', mantém em memória, filtra do lado do cliente.
 // ---------------------------------------------------------------------
@@ -239,8 +239,21 @@ STORE dim_produto INTO [$(vGoldPath)dim_produto.parquet] (parquet);
 DROP TABLE dim_produto;
 
 // ---------------------------------------------------------------------
-// 4. dim_tempo - calendário cobrindo toda Data_Venda / Data_Remessa
-//    encontrada em todos os anos de Vendas (silver002)
+// 4. dim_tempo - calendário cobrindo toda Data_Venda / Data_Remessa /
+//    Data_Devolucao encontrada em todos os anos de Vendas e Devolucoes
+//    (silver002)
+//
+// ATENCAO ao analisar por gen_data/key_data sem olhar o contexto do fato:
+// dim_tempo eh uma dimensao CONFORMADA que mistura as tres datas acima no
+// mesmo calendario (esse eh o motivo de vMaxYear cobrir Data_Devolucao
+// tambem, nao so Data_Venda). Uma data "no futuro" em key_data NAO significa
+// necessariamente venda futura - pode ser Data_Remessa ou Data_Devolucao de
+// uma venda antiga. Para saber a que corresponde uma data especifica, olhar
+// o fato (fact_vendas usa key_data = Data_Venda; fact_remessas usa
+// key_data = Data_Remessa; fact_devolucoes usa key_data = Data_Devolucao),
+// nunca dim_tempo isolada. (Confusao real já causada por isso: diagnóstico
+// errado de "data futura em vendas" quando na verdade era Data_Remessa ou
+// Data_Devolucao — ver achados de deploy em Guia_Implementacao_Novo_Tenant.md.)
 // ---------------------------------------------------------------------
 TRACE Construindo dim_tempo;
 
