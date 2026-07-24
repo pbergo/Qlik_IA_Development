@@ -88,6 +88,8 @@ flowchart TD
 
 ## Estrutura do projeto
 
+> **Segredos/credenciais** (API key do tenant, senha do Oracle, chaves do S3) não ficam dentro deste projeto — são coletados sob demanda e gravados em um único `secrets.env` na **raiz do repositório** (`../secrets.env` a partir daqui, ao lado de `Projeto Exemplo 1/` e `Projeto Exemplo 2/`), coberto pela regra `*.env` do `.gitignore` da raiz. Ver [implantacao/Guia_Instalacao_Projeto.md §0](implantacao/Guia_Instalacao_Projeto.md#0-coletar-credenciais-e-registrar-em-secretsenv).
+
 ```
 ./
 ├── README.md
@@ -99,9 +101,6 @@ flowchart TD
 │   │
 │   ├── tenant-information/
 │   │   └── tenant-info.md             --> Informações para conectar ao tenant Qlik Cloud
-│   │
-│   ├── secrets/                       --> Ignorado pelo .gitignore
-│   │   └── secrets.env
 │   │
 │   ├── data-connections/
 │   │   ├── da-oracle.md               --> Conexão de Data Analytics com Oracle (usada pelos scripts ext00x)
@@ -148,7 +147,7 @@ flowchart TD
 Estes arquivos contêm as especificações para o desenvolvimento do projeto
 - implantacao/tenant-information/tenant-info.md: Contém as informações para conectar ao tenant do Qlik Cloud
 - implantacao/data-connections/*.md: Contêm as informações para conectar os dados, com base na seção do Qlik e no nome do arquivo de conexão, como 'da-oracle.md' para a conexão de Data Analytics com o Oracle.
-- implantacao/secrets/secrets.env: esse arquivo contém as variáveis de ambiente, contendo senhas e chaves de API. Atenção: manter *.env dentro do .gitignore para evitar exposição.
+- ../secrets.env (raiz do repositório, fora deste projeto): variáveis de ambiente com senhas e chaves de API, coletadas sob demanda durante o deploy. Atenção: manter *.env dentro do .gitignore da raiz para evitar exposição.
 
 ## Documentação
 

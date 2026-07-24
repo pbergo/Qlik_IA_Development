@@ -7,6 +7,7 @@
 
 ## Visão geral da sequência
 
+0. Coletar credenciais e registrar em `secrets.env` (raiz do repositório)
 1. Preparar o ambiente local (`qlik-cli`, MCP)
 2. Preparar a fonte Oracle (usuário, tabelas e dados de exemplo)
 3. *(manual)* Instalar e registrar o Direct Access Gateway
@@ -18,6 +19,20 @@
 9. Validar
 
 ---
+
+## 0. Coletar credenciais e registrar em `secrets.env`
+
+Antes de qualquer outra etapa, o Claude deve **solicitar ao usuário** e registrar as credenciais abaixo em um arquivo `secrets.env` na **raiz do repositório** (`../../secrets.env` a partir desta pasta — um nível acima de `Projeto Exemplo 1/`, não dentro de `implantacao/secrets/`). Esse arquivo é coberto pela regra `*.env` do `.gitignore` na raiz, então nunca é versionado — pode conter valores reais com segurança.
+
+Esta é uma convenção do repositório como um todo: **toda vez que uma etapa deste guia (ou qualquer interação futura) exigir uma chave de API ou senha de conexão ainda não registrada, ela deve ser pedida ao usuário e gravada nesse mesmo `secrets.env`**, para não ser solicitada de novo.
+
+Credenciais a coletar nesta etapa:
+
+- **API key do tenant Qlik Cloud de destino** — precisa ser gerada pelo **mesmo usuário autenticado no Claude Code/MCP** (ver §2.7/§2.8 do [Guia de Implementação](Guia_Implementacao_Novo_Tenant.md)), já que essa mesma chave será reaproveitada para configurar o contexto do `qlik-cli` no passo 1 abaixo.
+- **Senha de conexão com o Oracle fonte** (usuário `vendasods`, schema `VENDASODS`) — usada na conexão `da-oracle` (passo 5).
+- **Access Key e Secret Key do bucket S3** de destino — usadas na conexão `da-s3` (passo 5).
+
+Ver [Guia_Implementacao_Novo_Tenant.md §4](Guia_Implementacao_Novo_Tenant.md#4-segredos-e-credenciais-a-preparar-checklist) para o checklist completo (inclui também nome do bucket/região e nome de referência do gateway).
 
 ## 1. Preparar o ambiente local
 
@@ -31,9 +46,9 @@ qlik context create <nome-do-contexto> --server https://<tenant-novo>.qlikcloud.
 qlik context use <nome-do-contexto>
 ```
 
-Registrar o servidor MCP Qlik apontando para o mesmo tenant — ver [Guia_Implementacao_Novo_Tenant.md §2.7](Guia_Implementacao_Novo_Tenant.md#27-integração-mcp-configurada).
+Usar aqui a mesma API key registrada no passo 0.
 
-> Ver [Guia_Implementacao_Novo_Tenant.md §4](Guia_Implementacao_Novo_Tenant.md#4-segredos-e-credenciais-a-preparar-checklist) para a prática recomendada de coletar as credenciais (API key, senha do Oracle, chaves do S3) uma única vez no início e registrá-las em [secrets/secrets.env](secrets/secrets.env).
+Registrar o servidor MCP Qlik apontando para o mesmo tenant — ver [Guia_Implementacao_Novo_Tenant.md §2.7](Guia_Implementacao_Novo_Tenant.md#27-integração-mcp-configurada).
 
 ## 2. Preparar a fonte Oracle (usuário, tabelas e dados de exemplo)
 

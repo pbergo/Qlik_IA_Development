@@ -111,17 +111,17 @@ Boas práticas: manter segredos/tokens fora do repositório, revisar periodicame
 
 ## 4. Segredos e credenciais a preparar (checklist)
 
-Ter em mãos **antes** de iniciar o deploy:
+**Convenção do repositório**: sempre que o Claude precisar de uma chave de API ou senha de conexão (nesta implantação ou em qualquer outra, deste ou de outro projeto do repositório), ela deve ser **solicitada ao usuário** e registrada em um arquivo `secrets.env` na **raiz do repositório** (um nível acima de `Projeto Exemplo 1/` e `Projeto Exemplo 2/` — não dentro de `implantacao/secrets/`). Esse arquivo já é coberto pelo `.gitignore` (`*.env`, regra na raiz) — nunca é versionado, então pode conter valores reais com segurança. Isso evita pedir o mesmo valor mais de uma vez ao longo do deploy. Ver [Guia_Instalacao_Projeto.md §0](Guia_Instalacao_Projeto.md#0-coletar-credenciais-e-registrar-em-secretsenv) para o passo correspondente.
 
-- [ ] API key do tenant Qlik Cloud de destino — mesmo usuário para o contexto `qlik-cli` e para o servidor MCP (ver 2.8), com os papéis de 2.2
-- [ ] Usuário/senha do Oracle fonte (schema `vendasods`/`VENDASODS`)
+Valores a solicitar e registrar **antes** de iniciar o deploy:
+
+- [ ] **API key do tenant Qlik Cloud de destino** — precisa ser gerada pelo **mesmo usuário autenticado no Claude Code/MCP** (ver 2.7/2.8), e essa mesma chave é reaproveitada para configurar o contexto do `qlik-cli` (`qlik context create ... --api-key <api-key>`). Não usar API keys de usuários diferentes entre `qlik-cli` e MCP — ver 2.8.
+- [ ] Usuário/senha de conexão com o Oracle fonte (schema `vendasods`/`VENDASODS`)
 - [ ] Access Key / Secret Key do bucket S3
 - [ ] Nome do bucket S3 e região
 - [ ] Nome/host de referência do Direct Access Gateway a ser registrado
 
-**Prática recomendada**: registrar esses valores em `implantacao/secrets/secrets.env` (ver estrutura em [README.md](../README.md)).
-- Esse caminho já é coberto pelo `.gitignore` (`implantacao/secrets/*`, além de `*.env`) — o arquivo não é versionado.
-- Tratar o conteúdo do arquivo como sensível localmente (não colar em chat/log fora da própria sessão de deploy).
+Tratar o conteúdo do arquivo como sensível localmente (não colar em chat/log fora da própria sessão de deploy).
 
 ---
 
@@ -135,7 +135,7 @@ Atribuir papéis (`producer`/`codeveloper`/`consumer`) aos usuários finais nos 
 
 - **`di-oracle.md`/`di-s3.md` não são usados pelo pipeline atual**: este projeto extrai via `da-oracle` (SQL direto), não via CDC. Os arquivos `di-oracle.md`/`di-s3.md` em [data-connections/](data-connections/) existem por convenção do template (todo projeto documenta as 4 conexões possíveis), mas não são consumidos por nenhum script hoje — reservados para uma futura migração a CDC.
 - **`da-oracle.md`/`di-oracle.md` são compartilhados entre deploys/tenants**: o `Server`/`Host name` neles é um exemplo/snapshot, não uma constante do projeto — confirmar o valor real do tenant de destino antes de criar a conexão (ver aviso nos próprios arquivos).
-- **Segredos em texto plano**: se `implantacao/secrets/secrets.env` ou o JSON da Automation vierem a conter credenciais reais, nunca commitá-los — ver 4 e a nota sobre `executionToken` em [../projeto/automation/VendasODS_Pipeline_Execution_Requisitos_Tecnicos.md](../projeto/automation/VendasODS_Pipeline_Execution_Requisitos_Tecnicos.md).
+- **Segredos em texto plano**: se o `secrets.env` na raiz do repositório ou o JSON da Automation vierem a conter credenciais reais, nunca commitá-los — ver 4 e a nota sobre `executionToken` em [../projeto/automation/VendasODS_Pipeline_Execution_Requisitos_Tecnicos.md](../projeto/automation/VendasODS_Pipeline_Execution_Requisitos_Tecnicos.md).
 - **Sem notificação de falha real** na Automation: os blocos `Output`/`Error` só exibem status e interrompem a execução — não há conector de e-mail/Slack/Teams alertando um responsável. Considerar adicionar se monitoramento ativo for necessário.
 - **`dim_tempo` de `trf005_gold_star_schema.qvs` é uma dimensão conformada** (mistura Data_Venda + Data_Remessa + Data_Devolucao no mesmo calendário) — ao analisar `gen_data`/`key_data`, sempre olhar o fato associado (`fact_vendas`/`fact_remessas`/`fact_devolucoes`) para saber a que a data se refere, nunca `dim_tempo` isolada.
 - **Itens a validar na primeira implementação real** (este projeto ainda não foi implantado): tempo real de execução da cascata de 9 etapas frente à frequência do schedule (15 min); se o Direct Access Gateway exige algum driver/cliente Oracle adicional no host Windows; se a janela de incremental de `vWindowDays = 14` (ext002/ext003) é adequada ao volume real de dados do tenant de destino.
