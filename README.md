@@ -10,9 +10,9 @@ Um repositório abrangente demonstrando como aproveitar a Inteligência Artifici
 
 ### Exemplos
 
-- [Projeto Exemplo 1: Pipeline básico de dados de vendas](./Projeto%20Exemplo%201/README.md) — Um exemplo fundamental de engenharia de dados usando MySQL como origem, implementando a arquitetura medalhão (camadas landing, bronze, silver, gold) com dados armazenados no Amazon S3 e análise no Qlik Cloud.
+- [Projeto Exemplo 1: Pipeline básico de dados de vendas](./Projeto%20Exemplo%201/README.md) — Um exemplo fundamental de engenharia de dados usando Oracle como origem, implementando a arquitetura medalhão (camadas bronze, silver, gold) com dados armazenados no Amazon S3 e análise no Qlik Cloud. Isso tudo usando scripts Qlik para extrair e transformar os dados em arquivos parquet.
 
-- [Projeto Exemplo 2: Pipeline avançado baseado em CDC](./Projeto%20Exemplo%202/README.md) — Uma implementação estendida de engenharia de dados usando Change Data Capture (CDC) para ingestão incremental de dados, lidando com transformações complexas, incluindo tabelas fato consolidadas, e estabelecendo padrões abrangentes de desenvolvimento para pipelines de escala corporativa.
+- [Projeto Exemplo 2: Pipeline avançado baseado em CDC](./Projeto%20Exemplo%202/README.md) — Uma implementação estendida de engenharia de dados, onde a extração usa o método CDC - Change Data Capture para movimentar os dados para o Amazon S3, implementando a arquitetura medalhão (camadas landing, bronze, silver e gold), usando o Data Movement Gateway e também os scripts Qlik para a ingestão e transformações.
 
 ### Como usar 
 
