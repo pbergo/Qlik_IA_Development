@@ -1,4 +1,4 @@
-This file contains information to connect to source database through Qlik Data Integration: 
+Este arquivo contém as informações para conectar ao banco de dados de origem através do Qlik Data Integration: 
 
 space: $data-space$
 

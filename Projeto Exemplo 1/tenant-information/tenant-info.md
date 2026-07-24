@@ -1,4 +1,4 @@
-This file contains information for tenant access and default values
+Este arquivo contém as informações de acesso ao tenant e os valores padrão
 
 tenant-name: "pbergo-qcda.us.qlikcloud.com"
 

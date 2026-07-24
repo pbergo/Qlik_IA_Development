@@ -1,4 +1,4 @@
-This file contains information to connect to source database through Qlik Data Analytics: 
+Este arquivo contém as informações para conectar ao banco de dados de origem através do Qlik Data Analytics: 
 
 space: $shared-space$
 

@@ -56,10 +56,10 @@ Para instalar o Claude Desktop no Windows, siga este passo a passo rápido:
 ##### Instalação
 O Visual Studio Code é nossa IDE a ser utilizada para realizar os desenvolvimentos.
 
-1. Download the [Visual Studio Code System](https://go.microsoft.com/fwlink/?linkid=852157) setup for Windows.
-1. Run the installer with administrator permissions.
+1. Baixe o instalador [Visual Studio Code System](https://go.microsoft.com/fwlink/?linkid=852157) para Windows.
+1. Execute o instalador com permissões de administrador.
 
-The System setup makes VS Code available to all users on the machine.
+O instalador System disponibiliza o VS Code para todos os usuários da máquina.
 
 ##### Extensões
 

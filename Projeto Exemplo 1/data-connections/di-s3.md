@@ -1,4 +1,4 @@
-This file contains information to connect to target storage through Qlik Data Integration: 
+Este arquivo contém as informações para conectar ao armazenamento de destino através do Qlik Data Integration: 
 
 space: $data-space$
 

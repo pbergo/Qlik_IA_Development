@@ -1,4 +1,4 @@
-This file contains information to connect to storage area  through Qlik Data Analytics: 
+Este arquivo contém as informações para conectar à área de armazenamento através do Qlik Data Analytics: 
 
 space: $shared-space$
 
