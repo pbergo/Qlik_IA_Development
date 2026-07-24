@@ -1,0 +1,233 @@
+///////////////////////////////////////////////////////////////////////////
+// Script: viz001_vendasods_analytics
+// Purpose: Analytics app load script for VendasODS. Loads the full Gold
+//          dimensions (dim_cliente, dim_vendedor, dim_produto, dim_tempo)
+//          and, from the Gold facts in the traditional Kimball model
+//          (fact_vendas, fact_remessas, fact_devolucoes - each carrying its
+//          own dimension FKs directly, restricted to year >= 2024), builds
+//          the Qlik-specific link_fato bridge table AT LOAD TIME, then
+//          strips the dimension FKs back out of the facts themselves.
+// Tags: Visualization, VendasODS
+// Source: Gold layer (gold/, da-s3) - platform-agnostic Kimball star, see
+//         modelos-dados/modelo_dimensional_kimball.png
+//
+// Why build link_fato here instead of in the Gold layer:
+//   The Gold layer (trf005) stores a simple, tool-agnostic conformed-
+//   dimension star (any BI tool or SQL engine can consume it as-is). But
+//   loaded as-is into Qlik, fact_vendas/fact_remessas/fact_devolucoes would
+//   share 2+ field names with each other (key_cliente, key_vendedor,
+//   key_data), which Qlik's associative engine resolves by creating
+//   synthetic key tables. So this app - the only Qlik-specific consumer -
+//   builds a link_fato bridge table from the raw Gold facts: one row per
+//   (source fact, grain key), capturing key_produto/key_cliente/
+//   key_vendedor/key_data plus the degenerate ids (key_pedido/key_peditem/
+//   key_devolucao) and gen_tipo_fato (which source the row came from). The
+//   facts are then reduced to their own dedicated grain key
+//   (key_vendas/key_remessas/key_devolucoes) + measures only. See
+//   modelos-dados/modelo_dimensional_qlik.png for the resulting Qlik-side
+//   model. Result: no dimension is associated to more than one table, and
+//   no pair of facts shares a key field.
+///////////////////////////////////////////////////////////////////////////
+
+SET vGoldPath = 'lib://VendasODS_Shared:da-s3/gold/';
+LET vMinFactYear = 2024;
+LET vMaxFactYear = Year(Today());
+
+// ---------------------------------------------------------------------
+// Reusable file-existence probe.
+// NOTE: FILELIST() is unreliable on this tenant/connector (it silently
+// returns zero matches even when the files exist), so year files are
+// discovered by probing a bounded year range with ErrorMode=0 + ScriptError
+// instead of enumerating a wildcard.
+// ---------------------------------------------------------------------
+SUB ProbeFileExists(vProbePath)
+    SET ErrorMode = 0;
+    ProbeCheckTable:
+    LOAD * FROM [$(vProbePath)] (parquet);
+    LET vProbeExists = If(ScriptError = '', 1, 0);
+    IF TableNumber('ProbeCheckTable') > 0 THEN
+        DROP TABLE ProbeCheckTable;
+    ENDIF
+    SET ErrorMode = 1;
+END SUB
+
+// ---------------------------------------------------------------------
+// 1. Dimensions - loaded in full
+// ---------------------------------------------------------------------
+TRACE Loading dimensions;
+
+dim_cliente:
+NOCONCATENATE
+LOAD *
+FROM [$(vGoldPath)dim_cliente.parquet]
+(parquet);
+
+dim_vendedor:
+NOCONCATENATE
+LOAD *
+FROM [$(vGoldPath)dim_vendedor.parquet]
+(parquet);
+
+dim_produto:
+NOCONCATENATE
+LOAD *
+FROM [$(vGoldPath)dim_produto.parquet]
+(parquet);
+
+dim_tempo:
+NOCONCATENATE
+LOAD *
+FROM [$(vGoldPath)dim_tempo.parquet]
+(parquet);
+
+// ---------------------------------------------------------------------
+// 2. link_fato accumulator - populated per year below, from the raw Gold
+//    facts, before those facts are reduced.
+// ---------------------------------------------------------------------
+link_fato:
+LOAD * INLINE [
+key_vendas, key_remessas, key_devolucoes, gen_tipo_fato, key_pedido, key_peditem, key_devolucao, key_produto, key_cliente, key_vendedor, key_data
+];
+
+// ---------------------------------------------------------------------
+// 3. Facts - year >= 2024 only. Each Gold file is loaded raw (with its
+//    full direct FKs), used to feed link_fato, and then reduced to its own
+//    dedicated grain key + measures for the final fact table.
+// ---------------------------------------------------------------------
+FOR vYear = $(vMinFactYear) to $(vMaxFactYear)
+
+    LET vFactVendasFile = '$(vGoldPath)fact_vendas_$(vYear).parquet';
+    CALL ProbeFileExists('$(vFactVendasFile)');
+
+    IF vProbeExists > 0 THEN
+
+        TRACE Loading fact_vendas year $(vYear);
+
+        FactVendas_Raw:
+        NOCONCATENATE
+        LOAD *
+        FROM [$(vFactVendasFile)]
+        (parquet);
+
+        Concatenate (link_fato)
+        LOAD
+            key_peditem as key_vendas,
+            Null() as key_remessas,
+            Null() as key_devolucoes,
+            'Venda' as gen_tipo_fato,
+            key_pedido,
+            key_peditem,
+            Null() as key_devolucao,
+            key_produto,
+            key_cliente,
+            key_vendedor,
+            key_data
+        RESIDENT FactVendas_Raw;
+
+        fact_vendas:
+        LOAD
+            key_peditem as key_vendas,
+            flg_cancelado,
+            nm_vendas,
+            nm_qtde_venda,
+            nm_valor_venda,
+            nm_valor_custo,
+            nm_valor_frete,
+            nm_valor_margem,
+            nm_perc_frete
+        RESIDENT FactVendas_Raw;
+
+        DROP TABLE FactVendas_Raw;
+
+    ENDIF
+
+    LET vFactRemessasFile = '$(vGoldPath)fact_remessas_$(vYear).parquet';
+    CALL ProbeFileExists('$(vFactRemessasFile)');
+
+    IF vProbeExists > 0 THEN
+
+        TRACE Loading fact_remessas year $(vYear);
+
+        FactRemessas_Raw:
+        NOCONCATENATE
+        LOAD *
+        FROM [$(vFactRemessasFile)]
+        (parquet);
+
+        Concatenate (link_fato)
+        LOAD
+            Null() as key_vendas,
+            key_pedido as key_remessas,
+            Null() as key_devolucoes,
+            'Remessa' as gen_tipo_fato,
+            key_pedido,
+            Null() as key_peditem,
+            Null() as key_devolucao,
+            Null() as key_produto,
+            key_cliente,
+            key_vendedor,
+            key_data
+        RESIDENT FactRemessas_Raw;
+
+        fact_remessas:
+        LOAD
+            key_pedido as key_remessas,
+            nm_remessas,
+            nm_qtde_remessas,
+            nm_valor_remessas,
+            nm_custo_remessas,
+            nm_frete_remessas,
+            nm_margem_remessas,
+            nm_perc_frete_remessas,
+            nm_leadtime_remessa
+        RESIDENT FactRemessas_Raw;
+
+        DROP TABLE FactRemessas_Raw;
+
+    ENDIF
+
+    LET vFactDevolucoesFile = '$(vGoldPath)fact_devolucoes_$(vYear).parquet';
+    CALL ProbeFileExists('$(vFactDevolucoesFile)');
+
+    IF vProbeExists > 0 THEN
+
+        TRACE Loading fact_devolucoes year $(vYear);
+
+        FactDevolucoes_Raw:
+        NOCONCATENATE
+        LOAD *
+        FROM [$(vFactDevolucoesFile)]
+        (parquet);
+
+        Concatenate (link_fato)
+        LOAD
+            Null() as key_vendas,
+            Null() as key_remessas,
+            key_devolucao_item as key_devolucoes,
+            'Devolucao' as gen_tipo_fato,
+            key_pedido,
+            key_peditem,
+            key_devolucao,
+            key_produto,
+            key_cliente,
+            key_vendedor,
+            key_data
+        RESIDENT FactDevolucoes_Raw;
+
+        fact_devolucoes:
+        LOAD
+            key_devolucao_item as key_devolucoes,
+            str_observacao,
+            nm_devolucoes,
+            nm_qtde_devolvida,
+            nm_valor_devolucao,
+            nm_leadtime_devolucao
+        RESIDENT FactDevolucoes_Raw;
+
+        DROP TABLE FactDevolucoes_Raw;
+
+    ENDIF
+
+NEXT vYear
+
+TRACE viz001_vendasods_analytics completed;

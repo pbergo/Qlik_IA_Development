@@ -1,0 +1,153 @@
+///////////////////////////////////////////////////////////////////////////
+// Script: trf004_silver_devolucoes_consolidado
+// Purpose: Consolidate the Silver Devolucoes + Devolucao_Item tables
+//          (silver001, already cleaned by trf002) into a single
+//          denormalized "Devolucoes" table, one Parquet file per year
+//          (Devolucoes_YYYY.parquet), stored in silver002 - the same
+//          consolidated-entity layer trf003 uses for Vendas.
+// Tags: Transform, VendasODS
+// Layer: Silver (silver/silver002)
+//
+// Load type:
+//   - INITIAL   (no Devolucoes_*.parquet found yet in silver002): every
+//     year available in silver001 is (re)built into Devolucoes_YYYY.parquet.
+//   - INCREMENTAL (files already exist): only years touched by the last
+//     N days (same window used by the ext003 extraction, so this stays in
+//     sync with the Bronze/Silver incremental refresh) are rebuilt. Since
+//     silver001's Devolucoes_YYYY.parquet / Devolucao_Item_YYYY.parquet
+//     already hold the full, up to date content for that year (trf002
+//     rebuilds them completely on every run), rebuilding
+//     Devolucoes_YYYY.parquet for the touched year(s) is a simple full
+//     replace - no row-level merge needed.
+///////////////////////////////////////////////////////////////////////////
+
+SET vSourceName = 'vendasods';
+SET vSilverPath = 'lib://VendasODS_Shared:da-s3/silver/silver001/';
+SET vDevolucoesPath = 'lib://VendasODS_Shared:da-s3/silver/silver002/';
+
+// Must match the window used by ext003 (extraction) so this Devolucoes
+// stays in sync with the incrementally refreshed Bronze/Silver data.
+LET vWindowDays = 14;
+LET vCutoffDate = Date(Today() - $(vWindowDays), 'YYYY-MM-DD');
+LET vMinYear = Year(Today()) - 10;
+LET vMaxYear = Year(Today());
+
+// ---------------------------------------------------------------------
+// Reusable file-existence probe.
+// NOTE: FILELIST() is unreliable on this tenant/connector (it silently
+// returns zero matches even when the files exist), so year files are
+// discovered by probing a bounded year range with ErrorMode=0 + ScriptError
+// instead of enumerating a wildcard.
+// ---------------------------------------------------------------------
+SUB ProbeFileExists(vProbePath)
+    SET ErrorMode = 0;
+    ProbeCheckTable:
+    LOAD * FROM [$(vProbePath)] (parquet);
+    LET vProbeExists = If(ScriptError = '', 1, 0);
+    IF TableNumber('ProbeCheckTable') > 0 THEN
+        DROP TABLE ProbeCheckTable;
+    ENDIF
+    SET ErrorMode = 1;
+END SUB
+
+// ---------------------------------------------------------------------
+// 1. Detect load mode: INITIAL if no Devolucoes parquet file exists yet
+//    for any year in the probed range (silver002)
+// ---------------------------------------------------------------------
+LET vExistingDevolucoesCount = 0;
+FOR vProbeYear = $(vMinYear) to $(vMaxYear)
+    CALL ProbeFileExists('$(vDevolucoesPath)Devolucoes_$(vProbeYear).parquet');
+    LET vExistingDevolucoesCount = vExistingDevolucoesCount + vProbeExists;
+NEXT vProbeYear
+
+IF vExistingDevolucoesCount = 0 THEN
+    LET vLoadMode = 'INITIAL';
+ELSE
+    LET vLoadMode = 'INCREMENTAL';
+ENDIF
+
+TRACE Load mode detected: $(vLoadMode);
+
+// ---------------------------------------------------------------------
+// 2. Determine which years need to be (re)built
+//    - INITIAL: every year available in silver001
+//    - INCREMENTAL: only years with Devolucoes rows inside the refresh window
+// ---------------------------------------------------------------------
+YearsToProcess:
+LOAD * INLINE [
+Ano
+];
+
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vDevolucoesFile = '$(vSilverPath)Devolucoes_$(vYear).parquet';
+    CALL ProbeFileExists('$(vDevolucoesFile)');
+
+    IF vProbeExists = 0 THEN
+        LET vNeedsRebuild = 0;
+    ELSEIF vLoadMode = 'INITIAL' THEN
+        LET vNeedsRebuild = 1;
+    ELSE
+        TouchCheck:
+        NOCONCATENATE
+        LOAD Data_Devolucao
+        FROM [$(vDevolucoesFile)]
+        (parquet)
+        WHERE Data_Devolucao >= '$(vCutoffDate)';
+        LET vNeedsRebuild = NoOfRows('TouchCheck');
+        DROP TABLE TouchCheck;
+    ENDIF
+
+    IF vNeedsRebuild > 0 THEN
+        Concatenate (YearsToProcess)
+        LOAD '$(vYear)' as Ano
+        AUTOGENERATE 1;
+    ENDIF
+
+NEXT vYear
+
+LET vNumYears = NoOfRows('YearsToProcess');
+
+// ---------------------------------------------------------------------
+// 3. Build and store Devolucoes_YYYY.parquet for each year that needs it
+// ---------------------------------------------------------------------
+FOR i = 0 to vNumYears - 1
+
+    LET vYear = Peek('Ano', $(i), 'YearsToProcess');
+    LET vDevolucoesFile = '$(vSilverPath)Devolucoes_$(vYear).parquet';
+    LET vDevolucaoItemFile = '$(vSilverPath)Devolucao_Item_$(vYear).parquet';
+    LET vTargetFile = '$(vDevolucoesPath)Devolucoes_$(vYear).parquet';
+
+    TRACE Building Devolucoes for year $(vYear) - mode $(vLoadMode);
+
+    Devolucoes_Y:
+    NOCONCATENATE
+    LOAD
+        Devolucao_Item_ID,
+        Devolucao_ID,
+        PedItem_ID,
+        Produto_ID,
+        Qtde_Devolvida,
+        PrecoUN_Venda,
+        Valor_Devolucao
+    FROM [$(vDevolucaoItemFile)]
+    (parquet);
+
+    Left Join (Devolucoes_Y)
+    LOAD
+        Devolucao_ID,
+        Pedido_ID,
+        Data_Devolucao,
+        Observacao
+    FROM [$(vDevolucoesFile)]
+    (parquet);
+
+    STORE Devolucoes_Y INTO [$(vTargetFile)] (parquet);
+
+    DROP TABLE Devolucoes_Y;
+
+NEXT i
+
+DROP TABLE YearsToProcess;
+
+TRACE trf004_silver_devolucoes_consolidado completed;

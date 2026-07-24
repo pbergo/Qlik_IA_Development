@@ -1,0 +1,1800 @@
+{
+  "id": "<AUTOMATION_ID - PREENCHER NO DEPLOY>",
+  "ownerId": "<OWNER_ID - PREENCHER NO DEPLOY>",
+  "name": "VendasODS_Pipeline_Execution",
+  "spaceId": "<SPACE_ID_VendasODS_Shared - PREENCHER NO DEPLOY>",
+  "state": "available",
+  "description": "Executa em cascata a extracao/transformacao do VendasODS: ext001, ext002, ext003, trf001, trf002, trf003, trf004, trf005, viz001. Cada etapa so roda se a anterior tiver sucesso.",
+  "schedules": [
+    {
+      "recurrence": "RRULE:FREQ=MINUTELY;INTERVAL=15",
+      "id": "<SCHEDULE_ID - PREENCHER NO DEPLOY>",
+      "stopAt": null,
+      "interval": -2,
+      "startAt": "<PREENCHER NO DEPLOY>",
+      "timezone": "America/Sao_Paulo"
+    }
+  ],
+  "snippetIds": [
+    "b5dbb7a0-e715-11ea-b2bf-43bb35adee19"
+  ],
+  "endpointIds": [],
+  "connectorIds": [
+    "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+  ],
+  "workspace": {
+    "blocks": [
+      {
+        "x": 100,
+        "y": 100,
+        "id": "00000000-0000-4000-8000-000000000001",
+        "name": "Start",
+        "type": "StartBlock",
+        "inputs": [
+          {
+            "type": "select",
+            "value": "scheduled",
+            "id": "run_mode",
+            "structure": []
+          },
+          {
+            "type": "date",
+            "value": "<PREENCHER NO DEPLOY>",
+            "id": "schedule_start",
+            "structure": []
+          },
+          {
+            "type": "date",
+            "value": null,
+            "id": "schedule_stoptime",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "900",
+            "id": "schedule_interval",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "America/Sao_Paulo",
+            "id": "schedule_timezone",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000002",
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Start"
+      },
+      {
+        "x": 120,
+        "y": 220,
+        "id": "00000000-0000-4000-8000-000000000101",
+        "name": "DoReload",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "displayValue": "ext001_cadastros (<APP_ID_ext001_cadastros>)",
+            "type": "string",
+            "value": "<APP_ID_ext001_cadastros>",
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "structure": []
+          },
+          {
+            "displayValue": "Wait for reload to complete",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "structure": []
+          },
+          {
+            "structure": [],
+            "type": "object",
+            "mode": "keyValue",
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "value": null
+          },
+          {
+            "displayValue": "Yes",
+            "type": "select",
+            "value": "Yes",
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000201",
+        "comment": "Reload ext001_cadastros. This block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "blendr_on_error",
+            "structure": []
+          },
+          {
+            "type": "checkbox",
+            "value": false,
+            "id": "automations_censor_data",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload (ext001_cadastros)",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 120,
+        "y": 340,
+        "id": "00000000-0000-4000-8000-000000000201",
+        "name": "condition",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "type": "custom",
+            "value": {
+              "conditions": [
+                {
+                  "operator": "=",
+                  "input1": "{ $.DoReload.status }",
+                  "input2": "SUCCEEDED"
+                }
+              ],
+              "mode": "all"
+            },
+            "id": "conditions",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "yes"
+          },
+          {
+            "isCollapsed": false,
+            "name": "no"
+          }
+        ],
+        "childTrueId": "00000000-0000-4000-8000-000000000102",
+        "displayName": "Condition 1 (ext001_cadastros)",
+        "childFalseId": "00000000-0000-4000-8000-000000000301"
+      },
+      {
+        "x": 320,
+        "y": 460,
+        "id": "00000000-0000-4000-8000-000000000301",
+        "name": "output_fail_1",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Falha no reload de ext001_cadastros ({ $.DoReload.status })",
+            "id": "input",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000401",
+        "comment": "Reload status on failure - replace with an email/Slack/Teams connector for real alerting.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "add",
+            "id": "display_mode",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Output (falha ext001_cadastros)"
+      },
+      {
+        "x": 320,
+        "y": 540,
+        "id": "00000000-0000-4000-8000-000000000401",
+        "name": "error_1",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Pipeline VendasODS interrompido: falha em ext001_cadastros",
+            "id": "message",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "action",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Error (ext001_cadastros)"
+      },
+      {
+        "x": 140,
+        "y": 660,
+        "id": "00000000-0000-4000-8000-000000000102",
+        "name": "DoReload2",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "displayValue": "ext002_pedidos_peditem (<APP_ID_ext002_pedidos_peditem>)",
+            "type": "string",
+            "value": "<APP_ID_ext002_pedidos_peditem>",
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "structure": []
+          },
+          {
+            "displayValue": "Wait for reload to complete",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "structure": []
+          },
+          {
+            "structure": [],
+            "type": "object",
+            "mode": "keyValue",
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "value": null
+          },
+          {
+            "displayValue": "Yes",
+            "type": "select",
+            "value": "Yes",
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000202",
+        "comment": "Reload ext002_pedidos_peditem. This block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "blendr_on_error",
+            "structure": []
+          },
+          {
+            "type": "checkbox",
+            "value": false,
+            "id": "automations_censor_data",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload (ext002_pedidos_peditem)",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 140,
+        "y": 780,
+        "id": "00000000-0000-4000-8000-000000000202",
+        "name": "condition2",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "type": "custom",
+            "value": {
+              "conditions": [
+                {
+                  "operator": "=",
+                  "input1": "{ $.DoReload2.status }",
+                  "input2": "SUCCEEDED"
+                }
+              ],
+              "mode": "all"
+            },
+            "id": "conditions",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "yes"
+          },
+          {
+            "isCollapsed": false,
+            "name": "no"
+          }
+        ],
+        "childTrueId": "00000000-0000-4000-8000-000000000103",
+        "displayName": "Condition 2 (ext002_pedidos_peditem)",
+        "childFalseId": "00000000-0000-4000-8000-000000000302"
+      },
+      {
+        "x": 340,
+        "y": 900,
+        "id": "00000000-0000-4000-8000-000000000302",
+        "name": "output_fail_2",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Falha no reload de ext002_pedidos_peditem ({ $.DoReload2.status })",
+            "id": "input",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000402",
+        "comment": "Reload status on failure - replace with an email/Slack/Teams connector for real alerting.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "add",
+            "id": "display_mode",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Output (falha ext002_pedidos_peditem)"
+      },
+      {
+        "x": 340,
+        "y": 980,
+        "id": "00000000-0000-4000-8000-000000000402",
+        "name": "error_2",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Pipeline VendasODS interrompido: falha em ext002_pedidos_peditem",
+            "id": "message",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "action",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Error (ext002_pedidos_peditem)"
+      },
+      {
+        "x": 160,
+        "y": 1100,
+        "id": "00000000-0000-4000-8000-000000000103",
+        "name": "DoReload3",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "displayValue": "ext003_devolucoes (<APP_ID_ext003_devolucoes>)",
+            "type": "string",
+            "value": "<APP_ID_ext003_devolucoes>",
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "structure": []
+          },
+          {
+            "displayValue": "Wait for reload to complete",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "structure": []
+          },
+          {
+            "structure": [],
+            "type": "object",
+            "mode": "keyValue",
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "value": null
+          },
+          {
+            "displayValue": "Yes",
+            "type": "select",
+            "value": "Yes",
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000203",
+        "comment": "Reload ext003_devolucoes. This block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "blendr_on_error",
+            "structure": []
+          },
+          {
+            "type": "checkbox",
+            "value": false,
+            "id": "automations_censor_data",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload (ext003_devolucoes)",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 160,
+        "y": 1220,
+        "id": "00000000-0000-4000-8000-000000000203",
+        "name": "condition3",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "type": "custom",
+            "value": {
+              "conditions": [
+                {
+                  "operator": "=",
+                  "input1": "{ $.DoReload3.status }",
+                  "input2": "SUCCEEDED"
+                }
+              ],
+              "mode": "all"
+            },
+            "id": "conditions",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "yes"
+          },
+          {
+            "isCollapsed": false,
+            "name": "no"
+          }
+        ],
+        "childTrueId": "00000000-0000-4000-8000-000000000104",
+        "displayName": "Condition 3 (ext003_devolucoes)",
+        "childFalseId": "00000000-0000-4000-8000-000000000303"
+      },
+      {
+        "x": 360,
+        "y": 1340,
+        "id": "00000000-0000-4000-8000-000000000303",
+        "name": "output_fail_3",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Falha no reload de ext003_devolucoes ({ $.DoReload3.status })",
+            "id": "input",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000403",
+        "comment": "Reload status on failure - replace with an email/Slack/Teams connector for real alerting.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "add",
+            "id": "display_mode",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Output (falha ext003_devolucoes)"
+      },
+      {
+        "x": 360,
+        "y": 1420,
+        "id": "00000000-0000-4000-8000-000000000403",
+        "name": "error_3",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Pipeline VendasODS interrompido: falha em ext003_devolucoes",
+            "id": "message",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "action",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Error (ext003_devolucoes)"
+      },
+      {
+        "x": 180,
+        "y": 1540,
+        "id": "00000000-0000-4000-8000-000000000104",
+        "name": "DoReload4",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "displayValue": "trf001_silver_vendasods (<APP_ID_trf001_silver_vendasods>)",
+            "type": "string",
+            "value": "<APP_ID_trf001_silver_vendasods>",
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "structure": []
+          },
+          {
+            "displayValue": "Wait for reload to complete",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "structure": []
+          },
+          {
+            "structure": [],
+            "type": "object",
+            "mode": "keyValue",
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "value": null
+          },
+          {
+            "displayValue": "Yes",
+            "type": "select",
+            "value": "Yes",
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000204",
+        "comment": "Reload trf001_silver_vendasods. This block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "blendr_on_error",
+            "structure": []
+          },
+          {
+            "type": "checkbox",
+            "value": false,
+            "id": "automations_censor_data",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload (trf001_silver_vendasods)",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 180,
+        "y": 1660,
+        "id": "00000000-0000-4000-8000-000000000204",
+        "name": "condition4",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "type": "custom",
+            "value": {
+              "conditions": [
+                {
+                  "operator": "=",
+                  "input1": "{ $.DoReload4.status }",
+                  "input2": "SUCCEEDED"
+                }
+              ],
+              "mode": "all"
+            },
+            "id": "conditions",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "yes"
+          },
+          {
+            "isCollapsed": false,
+            "name": "no"
+          }
+        ],
+        "childTrueId": "00000000-0000-4000-8000-000000000105",
+        "displayName": "Condition 4 (trf001_silver_vendasods)",
+        "childFalseId": "00000000-0000-4000-8000-000000000304"
+      },
+      {
+        "x": 380,
+        "y": 1780,
+        "id": "00000000-0000-4000-8000-000000000304",
+        "name": "output_fail_4",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Falha no reload de trf001_silver_vendasods ({ $.DoReload4.status })",
+            "id": "input",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000404",
+        "comment": "Reload status on failure - replace with an email/Slack/Teams connector for real alerting.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "add",
+            "id": "display_mode",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Output (falha trf001_silver_vendasods)"
+      },
+      {
+        "x": 380,
+        "y": 1860,
+        "id": "00000000-0000-4000-8000-000000000404",
+        "name": "error_4",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Pipeline VendasODS interrompido: falha em trf001_silver_vendasods",
+            "id": "message",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "action",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Error (trf001_silver_vendasods)"
+      },
+      {
+        "x": 200,
+        "y": 1980,
+        "id": "00000000-0000-4000-8000-000000000105",
+        "name": "DoReload5",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "displayValue": "trf002_silver_devolucoes (<APP_ID_trf002_silver_devolucoes>)",
+            "type": "string",
+            "value": "<APP_ID_trf002_silver_devolucoes>",
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "structure": []
+          },
+          {
+            "displayValue": "Wait for reload to complete",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "structure": []
+          },
+          {
+            "structure": [],
+            "type": "object",
+            "mode": "keyValue",
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "value": null
+          },
+          {
+            "displayValue": "Yes",
+            "type": "select",
+            "value": "Yes",
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000205",
+        "comment": "Reload trf002_silver_devolucoes. This block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "blendr_on_error",
+            "structure": []
+          },
+          {
+            "type": "checkbox",
+            "value": false,
+            "id": "automations_censor_data",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload (trf002_silver_devolucoes)",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 200,
+        "y": 2100,
+        "id": "00000000-0000-4000-8000-000000000205",
+        "name": "condition5",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "type": "custom",
+            "value": {
+              "conditions": [
+                {
+                  "operator": "=",
+                  "input1": "{ $.DoReload5.status }",
+                  "input2": "SUCCEEDED"
+                }
+              ],
+              "mode": "all"
+            },
+            "id": "conditions",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "yes"
+          },
+          {
+            "isCollapsed": false,
+            "name": "no"
+          }
+        ],
+        "childTrueId": "00000000-0000-4000-8000-000000000106",
+        "displayName": "Condition 5 (trf002_silver_devolucoes)",
+        "childFalseId": "00000000-0000-4000-8000-000000000305"
+      },
+      {
+        "x": 400,
+        "y": 2220,
+        "id": "00000000-0000-4000-8000-000000000305",
+        "name": "output_fail_5",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Falha no reload de trf002_silver_devolucoes ({ $.DoReload5.status })",
+            "id": "input",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000405",
+        "comment": "Reload status on failure - replace with an email/Slack/Teams connector for real alerting.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "add",
+            "id": "display_mode",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Output (falha trf002_silver_devolucoes)"
+      },
+      {
+        "x": 400,
+        "y": 2300,
+        "id": "00000000-0000-4000-8000-000000000405",
+        "name": "error_5",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Pipeline VendasODS interrompido: falha em trf002_silver_devolucoes",
+            "id": "message",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "action",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Error (trf002_silver_devolucoes)"
+      },
+      {
+        "x": 220,
+        "y": 2420,
+        "id": "00000000-0000-4000-8000-000000000106",
+        "name": "DoReload6",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "displayValue": "trf003_silver_vendas (<APP_ID_trf003_silver_vendas>)",
+            "type": "string",
+            "value": "<APP_ID_trf003_silver_vendas>",
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "structure": []
+          },
+          {
+            "displayValue": "Wait for reload to complete",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "structure": []
+          },
+          {
+            "structure": [],
+            "type": "object",
+            "mode": "keyValue",
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "value": null
+          },
+          {
+            "displayValue": "Yes",
+            "type": "select",
+            "value": "Yes",
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000206",
+        "comment": "Reload trf003_silver_vendas. This block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "blendr_on_error",
+            "structure": []
+          },
+          {
+            "type": "checkbox",
+            "value": false,
+            "id": "automations_censor_data",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload (trf003_silver_vendas)",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 220,
+        "y": 2540,
+        "id": "00000000-0000-4000-8000-000000000206",
+        "name": "condition6",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "type": "custom",
+            "value": {
+              "conditions": [
+                {
+                  "operator": "=",
+                  "input1": "{ $.DoReload6.status }",
+                  "input2": "SUCCEEDED"
+                }
+              ],
+              "mode": "all"
+            },
+            "id": "conditions",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "yes"
+          },
+          {
+            "isCollapsed": false,
+            "name": "no"
+          }
+        ],
+        "childTrueId": "00000000-0000-4000-8000-000000000107",
+        "displayName": "Condition 6 (trf003_silver_vendas)",
+        "childFalseId": "00000000-0000-4000-8000-000000000306"
+      },
+      {
+        "x": 420,
+        "y": 2660,
+        "id": "00000000-0000-4000-8000-000000000306",
+        "name": "output_fail_6",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Falha no reload de trf003_silver_vendas ({ $.DoReload6.status })",
+            "id": "input",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000406",
+        "comment": "Reload status on failure - replace with an email/Slack/Teams connector for real alerting.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "add",
+            "id": "display_mode",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Output (falha trf003_silver_vendas)"
+      },
+      {
+        "x": 420,
+        "y": 2740,
+        "id": "00000000-0000-4000-8000-000000000406",
+        "name": "error_6",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Pipeline VendasODS interrompido: falha em trf003_silver_vendas",
+            "id": "message",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "action",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Error (trf003_silver_vendas)"
+      },
+      {
+        "x": 240,
+        "y": 2860,
+        "id": "00000000-0000-4000-8000-000000000107",
+        "name": "DoReload7",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "displayValue": "trf004_silver_devolucoes_consolidado (<APP_ID_trf004_silver_devolucoes_consolidado>)",
+            "type": "string",
+            "value": "<APP_ID_trf004_silver_devolucoes_consolidado>",
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "structure": []
+          },
+          {
+            "displayValue": "Wait for reload to complete",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "structure": []
+          },
+          {
+            "structure": [],
+            "type": "object",
+            "mode": "keyValue",
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "value": null
+          },
+          {
+            "displayValue": "Yes",
+            "type": "select",
+            "value": "Yes",
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000207",
+        "comment": "Reload trf004_silver_devolucoes_consolidado. This block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "blendr_on_error",
+            "structure": []
+          },
+          {
+            "type": "checkbox",
+            "value": false,
+            "id": "automations_censor_data",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload (trf004_silver_devolucoes_consolidado)",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 240,
+        "y": 2980,
+        "id": "00000000-0000-4000-8000-000000000207",
+        "name": "condition7",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "type": "custom",
+            "value": {
+              "conditions": [
+                {
+                  "operator": "=",
+                  "input1": "{ $.DoReload7.status }",
+                  "input2": "SUCCEEDED"
+                }
+              ],
+              "mode": "all"
+            },
+            "id": "conditions",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "yes"
+          },
+          {
+            "isCollapsed": false,
+            "name": "no"
+          }
+        ],
+        "childTrueId": "00000000-0000-4000-8000-000000000108",
+        "displayName": "Condition 7 (trf004_silver_devolucoes_consolidado)",
+        "childFalseId": "00000000-0000-4000-8000-000000000307"
+      },
+      {
+        "x": 440,
+        "y": 3100,
+        "id": "00000000-0000-4000-8000-000000000307",
+        "name": "output_fail_7",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Falha no reload de trf004_silver_devolucoes_consolidado ({ $.DoReload7.status })",
+            "id": "input",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000407",
+        "comment": "Reload status on failure - replace with an email/Slack/Teams connector for real alerting.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "add",
+            "id": "display_mode",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Output (falha trf004_silver_devolucoes_consolidado)"
+      },
+      {
+        "x": 440,
+        "y": 3180,
+        "id": "00000000-0000-4000-8000-000000000407",
+        "name": "error_7",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Pipeline VendasODS interrompido: falha em trf004_silver_devolucoes_consolidado",
+            "id": "message",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "action",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Error (trf004_silver_devolucoes_consolidado)"
+      },
+      {
+        "x": 260,
+        "y": 3300,
+        "id": "00000000-0000-4000-8000-000000000108",
+        "name": "DoReload8",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "displayValue": "trf005_gold_star_schema (<APP_ID_trf005_gold_star_schema>)",
+            "type": "string",
+            "value": "<APP_ID_trf005_gold_star_schema>",
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "structure": []
+          },
+          {
+            "displayValue": "Wait for reload to complete",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "structure": []
+          },
+          {
+            "structure": [],
+            "type": "object",
+            "mode": "keyValue",
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "value": null
+          },
+          {
+            "displayValue": "Yes",
+            "type": "select",
+            "value": "Yes",
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000208",
+        "comment": "Reload trf005_gold_star_schema. This block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "blendr_on_error",
+            "structure": []
+          },
+          {
+            "type": "checkbox",
+            "value": false,
+            "id": "automations_censor_data",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload (trf005_gold_star_schema)",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 260,
+        "y": 3420,
+        "id": "00000000-0000-4000-8000-000000000208",
+        "name": "condition8",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "type": "custom",
+            "value": {
+              "conditions": [
+                {
+                  "operator": "=",
+                  "input1": "{ $.DoReload8.status }",
+                  "input2": "SUCCEEDED"
+                }
+              ],
+              "mode": "all"
+            },
+            "id": "conditions",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "yes"
+          },
+          {
+            "isCollapsed": false,
+            "name": "no"
+          }
+        ],
+        "childTrueId": "00000000-0000-4000-8000-000000000109",
+        "displayName": "Condition 8 (trf005_gold_star_schema)",
+        "childFalseId": "00000000-0000-4000-8000-000000000308"
+      },
+      {
+        "x": 460,
+        "y": 3540,
+        "id": "00000000-0000-4000-8000-000000000308",
+        "name": "output_fail_8",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Falha no reload de trf005_gold_star_schema ({ $.DoReload8.status })",
+            "id": "input",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000408",
+        "comment": "Reload status on failure - replace with an email/Slack/Teams connector for real alerting.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "add",
+            "id": "display_mode",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Output (falha trf005_gold_star_schema)"
+      },
+      {
+        "x": 460,
+        "y": 3620,
+        "id": "00000000-0000-4000-8000-000000000408",
+        "name": "error_8",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Pipeline VendasODS interrompido: falha em trf005_gold_star_schema",
+            "id": "message",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "action",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Error (trf005_gold_star_schema)"
+      },
+      {
+        "x": 280,
+        "y": 3740,
+        "id": "00000000-0000-4000-8000-000000000109",
+        "name": "DoReload9",
+        "type": "SnippetBlock",
+        "inputs": [
+          {
+            "displayValue": "viz001_vendasods_analytics (<APP_ID_viz001_vendasods_analytics>)",
+            "type": "string",
+            "value": "<APP_ID_viz001_vendasods_analytics>",
+            "id": "29603390-e716-11ea-9e37-05e08ee32111",
+            "structure": []
+          },
+          {
+            "displayValue": "Wait for reload to complete",
+            "type": "select",
+            "value": "Wait for reload to complete",
+            "id": "2ac9eef0-a677-11eb-aacc-8b755d0fe484",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "6892c0c0-c795-11eb-9860-9dc8cb705e25",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "ecebf340-c797-11eb-8671-53658babb1a1",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": null,
+            "id": "069de770-8277-11f0-a252-ad6769632a1c",
+            "structure": []
+          },
+          {
+            "structure": [],
+            "type": "object",
+            "mode": "keyValue",
+            "id": "06a02bd0-8277-11f0-b78b-f7910663702f",
+            "value": null
+          },
+          {
+            "displayValue": "Yes",
+            "type": "select",
+            "value": "Yes",
+            "id": "cc8dd1c0-a438-11f0-9e17-c77404b63446",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000209",
+        "comment": "Reload viz001_vendasods_analytics. This block is set to throw an error when the reload fails.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "blendr_on_error",
+            "structure": []
+          },
+          {
+            "type": "checkbox",
+            "value": false,
+            "id": "automations_censor_data",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Qlik Cloud Services - Do Reload (viz001_vendasods_analytics)",
+        "snippet_guid": "b5dbb7a0-e715-11ea-b2bf-43bb35adee19",
+        "datasourcetype_guid": "61a87510-c7a3-11ea-95da-0fb0c241e75c"
+      },
+      {
+        "x": 280,
+        "y": 3860,
+        "id": "00000000-0000-4000-8000-000000000209",
+        "name": "condition9",
+        "type": "IfElseBlock",
+        "inputs": [
+          {
+            "type": "custom",
+            "value": {
+              "conditions": [
+                {
+                  "operator": "=",
+                  "input1": "{ $.DoReload9.status }",
+                  "input2": "SUCCEEDED"
+                }
+              ],
+              "mode": "all"
+            },
+            "id": "conditions",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": "Was the Reload successful?",
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "yes"
+          },
+          {
+            "isCollapsed": false,
+            "name": "no"
+          }
+        ],
+        "childTrueId": "00000000-0000-4000-8000-000000000999",
+        "displayName": "Condition 9 (viz001_vendasods_analytics)",
+        "childFalseId": "00000000-0000-4000-8000-000000000309"
+      },
+      {
+        "x": 480,
+        "y": 3980,
+        "id": "00000000-0000-4000-8000-000000000309",
+        "name": "output_fail_9",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Falha no reload de viz001_vendasods_analytics ({ $.DoReload9.status })",
+            "id": "input",
+            "structure": []
+          }
+        ],
+        "childId": "00000000-0000-4000-8000-000000000409",
+        "comment": "Reload status on failure - replace with an email/Slack/Teams connector for real alerting.",
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "add",
+            "id": "display_mode",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Output (falha viz001_vendasods_analytics)"
+      },
+      {
+        "x": 480,
+        "y": 4060,
+        "id": "00000000-0000-4000-8000-000000000409",
+        "name": "error_9",
+        "type": "ErrorBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Pipeline VendasODS interrompido: falha em viz001_vendasods_analytics",
+            "id": "message",
+            "structure": []
+          },
+          {
+            "type": "select",
+            "value": "stop",
+            "id": "action",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Error (viz001_vendasods_analytics)"
+      },
+      {
+        "x": 100,
+        "y": 4180,
+        "id": "00000000-0000-4000-8000-000000000999",
+        "name": "output_success",
+        "type": "ShowBlock",
+        "inputs": [
+          {
+            "type": "string",
+            "value": "Todas as cargas foram completadas com sucesso",
+            "id": "input",
+            "structure": []
+          }
+        ],
+        "childId": null,
+        "comment": null,
+        "disabled": false,
+        "settings": [
+          {
+            "type": "select",
+            "value": "add",
+            "id": "display_mode",
+            "structure": []
+          }
+        ],
+        "collapsed": [
+          {
+            "isCollapsed": false,
+            "name": "loop"
+          }
+        ],
+        "displayName": "Output (sucesso)"
+      }
+    ],
+    "variables": []
+  },
+  "runMode": "scheduled",
+  "timeout": null,
+  "executionToken": "<EXECUTION_TOKEN - GERAR NO DEPLOY, NUNCA COMMITAR O VALOR REAL>",
+  "maxConcurrentRuns": 1
+}

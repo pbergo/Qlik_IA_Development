@@ -1,0 +1,163 @@
+///////////////////////////////////////////////////////////////////////////
+// Script: trf003_silver_vendas
+// Purpose: Consolidate the Silver Pedidos + PedItem tables (silver001,
+//          already cleaned by trf001) into a single denormalized "Vendas"
+//          table, one Parquet file per year (Vendas_YYYY.parquet), stored
+//          in silver002.
+//          Meta_ID is not present in the output - it was already dropped
+//          from Pedidos by trf001 (100% null in the source) and is
+//          explicitly excluded here as well for clarity. Data_Remessa is
+//          carried through - needed downstream by fact_remessas / the
+//          leadtime (Data_Remessa - Data_Venda) calculation.
+// Tags: Transform, VendasODS
+// Layer: Silver (silver/silver002)
+//
+// Load type:
+//   - INITIAL   (no Vendas_*.parquet found yet): every year available in
+//     silver001 Pedidos/PedItem is (re)built into Vendas_YYYY.parquet.
+//   - INCREMENTAL (files already exist): only years touched by the last
+//     N days (same window used by the ext002 extraction, so this stays in
+//     sync with the Bronze/Silver incremental refresh) are rebuilt. Since
+//     silver001's Pedidos_YYYY.parquet / PedItem_YYYY.parquet already hold
+//     the full, up to date content for that year (trf001 rebuilds them
+//     completely on every run), rebuilding Vendas_YYYY.parquet for the
+//     touched year(s) is a simple full replace - no row-level merge needed.
+///////////////////////////////////////////////////////////////////////////
+
+SET vSourceName = 'vendasods';
+SET vSilverPath = 'lib://VendasODS_Shared:da-s3/silver/silver001/';
+SET vVendasPath = 'lib://VendasODS_Shared:da-s3/silver/silver002/';
+
+// Must match the window used by ext002 (extraction) so Vendas stays in
+// sync with the incrementally refreshed Bronze/Silver Pedidos data.
+LET vWindowDays = 14;
+LET vCutoffDate = Date(Today() - $(vWindowDays), 'YYYY-MM-DD');
+LET vMinYear = Year(Today()) - 10;
+LET vMaxYear = Year(Today());
+
+// ---------------------------------------------------------------------
+// Reusable file-existence probe.
+// NOTE: FILELIST() is unreliable on this tenant/connector (it silently
+// returns zero matches even when the files exist), so year files are
+// discovered by probing a bounded year range with ErrorMode=0 + ScriptError
+// instead of enumerating a wildcard.
+// ---------------------------------------------------------------------
+SUB ProbeFileExists(vProbePath)
+    SET ErrorMode = 0;
+    ProbeCheckTable:
+    LOAD * FROM [$(vProbePath)] (parquet);
+    LET vProbeExists = If(ScriptError = '', 1, 0);
+    IF TableNumber('ProbeCheckTable') > 0 THEN
+        DROP TABLE ProbeCheckTable;
+    ENDIF
+    SET ErrorMode = 1;
+END SUB
+
+// ---------------------------------------------------------------------
+// 1. Detect load mode: INITIAL if no Vendas parquet file exists yet for
+//    any year in the probed range
+// ---------------------------------------------------------------------
+LET vExistingVendasCount = 0;
+FOR vProbeYear = $(vMinYear) to $(vMaxYear)
+    CALL ProbeFileExists('$(vVendasPath)Vendas_$(vProbeYear).parquet');
+    LET vExistingVendasCount = vExistingVendasCount + vProbeExists;
+NEXT vProbeYear
+
+IF vExistingVendasCount = 0 THEN
+    LET vLoadMode = 'INITIAL';
+ELSE
+    LET vLoadMode = 'INCREMENTAL';
+ENDIF
+
+TRACE Load mode detected: $(vLoadMode);
+
+// ---------------------------------------------------------------------
+// 2. Determine which years need to be (re)built
+//    - INITIAL: every year available in silver001
+//    - INCREMENTAL: only years with Pedidos rows inside the refresh window
+// ---------------------------------------------------------------------
+YearsToProcess:
+LOAD * INLINE [
+Ano
+];
+
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vPedidosFile = '$(vSilverPath)Pedidos_$(vYear).parquet';
+    CALL ProbeFileExists('$(vPedidosFile)');
+
+    IF vProbeExists = 0 THEN
+        LET vNeedsRebuild = 0;
+    ELSEIF vLoadMode = 'INITIAL' THEN
+        LET vNeedsRebuild = 1;
+    ELSE
+        TouchCheck:
+        NOCONCATENATE
+        LOAD Data_Venda
+        FROM [$(vPedidosFile)]
+        (parquet)
+        WHERE Data_Venda >= '$(vCutoffDate)';
+        LET vNeedsRebuild = NoOfRows('TouchCheck');
+        DROP TABLE TouchCheck;
+    ENDIF
+
+    IF vNeedsRebuild > 0 THEN
+        Concatenate (YearsToProcess)
+        LOAD '$(vYear)' as Ano
+        AUTOGENERATE 1;
+    ENDIF
+
+NEXT vYear
+
+LET vNumYears = NoOfRows('YearsToProcess');
+
+// ---------------------------------------------------------------------
+// 3. Build and store Vendas_YYYY.parquet for each year that needs it
+// ---------------------------------------------------------------------
+FOR i = 0 to vNumYears - 1
+
+    LET vYear = Peek('Ano', $(i), 'YearsToProcess');
+    LET vPedidosFile = '$(vSilverPath)Pedidos_$(vYear).parquet';
+    LET vPedItemFile = '$(vSilverPath)PedItem_$(vYear).parquet';
+    LET vVendasFile = '$(vVendasPath)Vendas_$(vYear).parquet';
+
+    TRACE Building Vendas for year $(vYear) - mode $(vLoadMode);
+
+    Vendas_Y:
+    NOCONCATENATE
+    LOAD
+        PedItem_ID,
+        Pedido_ID,
+        Produto_ID,
+        Qtde_Venda,
+        Valor_Venda,
+        Valor_Custo,
+        Valor_Frete,
+        Valor_Margem,
+        PrecoUN_Venda,
+        PrecoUN_Custo
+    FROM [$(vPedItemFile)]
+    (parquet);
+
+    Left Join (Vendas_Y)
+    LOAD
+        Pedido_ID,
+        Cliente_ID,
+        Vendedor_ID,
+        Data_Venda,
+        Data_Remessa,
+        Perc_Frete,
+        Cancelado,
+        Periodo
+    FROM [$(vPedidosFile)]
+    (parquet);
+
+    STORE Vendas_Y INTO [$(vVendasFile)] (parquet);
+
+    DROP TABLE Vendas_Y;
+
+NEXT i
+
+DROP TABLE YearsToProcess;
+
+TRACE trf003_silver_vendas completed;

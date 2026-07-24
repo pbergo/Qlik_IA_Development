@@ -1,0 +1,168 @@
+///////////////////////////////////////////////////////////////////////////
+// Script: trf001_silver_vendasods
+// Purpose: Transform VendasODS Bronze layer Parquet files (S3, 'da-s3')
+//          into the Silver layer (Parquet, 'da-s3'), applying the cleanup
+//          rules identified by the Bronze data quality assessment
+//          (Data Product VendasODS_Bronze_Quality):
+//            - Pedidos: drop Meta_ID (100% null in source), keep Data_Remessa
+//              (needed downstream by fact_remessas / leadtime calculation),
+//              cast Vendedor_ID to INTEGER (was stored as STRING, causing
+//              lexicographic min/max sorting instead of numeric).
+//            - Vendedores: cast Vendedor_ID to INTEGER (same key, same fix,
+//              required to keep the Pedidos <-> Vendedores join consistent).
+//            - Clientes: fill missing Cliente_Contato / Telefone with
+//              'Não informado' instead of leaving them null.
+//            - PedItem and all other cadastro tables: no quality issues
+//              found, passed through unchanged.
+// Tags: Transform, VendasODS
+// Layer: Silver (silver/silver001)
+///////////////////////////////////////////////////////////////////////////
+
+SET vSourceName = 'vendasods';
+SET vBronzePath = 'lib://VendasODS_Shared:da-s3/bronze/$(vSourceName)/';
+SET vSilverPath = 'lib://VendasODS_Shared:da-s3/silver/silver001/';
+LET vMinYear = Year(Today()) - 10;
+LET vMaxYear = Year(Today());
+
+// ---------------------------------------------------------------------
+// Reusable file-existence probe.
+// NOTE: FILELIST() is unreliable on this tenant/connector (it silently
+// returns zero matches even when the files exist), so year files are
+// discovered by probing a bounded year range with ErrorMode=0 + ScriptError
+// instead of enumerating a wildcard.
+// ---------------------------------------------------------------------
+SUB ProbeFileExists(vProbePath)
+    SET ErrorMode = 0;
+    ProbeCheckTable:
+    LOAD * FROM [$(vProbePath)] (parquet);
+    LET vProbeExists = If(ScriptError = '', 1, 0);
+    IF TableNumber('ProbeCheckTable') > 0 THEN
+        DROP TABLE ProbeCheckTable;
+    ENDIF
+    SET ErrorMode = 1;
+END SUB
+
+// ---------------------------------------------------------------------
+// 1. Cadastro tables with no quality issues - straight copy Bronze -> Silver
+// ---------------------------------------------------------------------
+FOR Each vTable in 'Gerentes','Cidades','Produtos','Categoria','Departamento','TabFrete','TabPreco'
+
+    TRACE Transforming cadastro table: $(vTable);
+
+    [$(vTable)]:
+    NOCONCATENATE
+    LOAD *
+    FROM [$(vBronzePath)$(vTable).parquet]
+    (parquet);
+
+    STORE [$(vTable)] INTO [$(vSilverPath)$(vTable).parquet] (parquet);
+
+    DROP TABLE [$(vTable)];
+
+NEXT vTable
+
+// ---------------------------------------------------------------------
+// 2. Vendedores - cast Vendedor_ID (STRING -> INTEGER)
+// ---------------------------------------------------------------------
+TRACE Transforming Vendedores;
+
+Vendedores:
+NOCONCATENATE
+LOAD
+    Num(Vendedor_ID) as Vendedor_ID,
+    Vendedor,
+    Vendedor_Sexo,
+    Cidade_ID,
+    Gerente_ID
+FROM [$(vBronzePath)Vendedores.parquet]
+(parquet);
+
+STORE Vendedores INTO [$(vSilverPath)Vendedores.parquet] (parquet);
+
+DROP TABLE Vendedores;
+
+// ---------------------------------------------------------------------
+// 3. Clientes - fill missing Cliente_Contato / Telefone
+// ---------------------------------------------------------------------
+TRACE Transforming Clientes;
+
+Clientes:
+NOCONCATENATE
+LOAD
+    Cliente_ID,
+    Cliente,
+    If(IsNull(Cliente_Contato) or Trim(Cliente_Contato) = '', 'Não informado', Cliente_Contato) as Cliente_Contato,
+    If(IsNull(Telefone) or Trim(Telefone) = '', 'Não informado', Telefone) as Telefone,
+    Cidade_ID
+FROM [$(vBronzePath)Clientes.parquet]
+(parquet);
+
+STORE Clientes INTO [$(vSilverPath)Clientes.parquet] (parquet);
+
+DROP TABLE Clientes;
+
+// ---------------------------------------------------------------------
+// 4. Pedidos - drop Meta_ID, cast Vendedor_ID, keep Data_Remessa, per year file
+// ---------------------------------------------------------------------
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vPedidosFile = '$(vBronzePath)Pedidos_$(vYear).parquet';
+    CALL ProbeFileExists('$(vPedidosFile)');
+
+    IF vProbeExists > 0 THEN
+
+        LET vTargetFile = '$(vSilverPath)Pedidos_$(vYear).parquet';
+
+        TRACE Transforming Pedidos year $(vYear);
+
+        Pedidos_Silver:
+        NOCONCATENATE
+        LOAD
+            Pedido_ID,
+            Cliente_ID,
+            Num(Vendedor_ID) as Vendedor_ID,
+            Data_Venda,
+            Data_Remessa,
+            Perc_Frete,
+            Cancelado,
+            Periodo
+        FROM [$(vPedidosFile)]
+        (parquet);
+
+        STORE Pedidos_Silver INTO [$(vTargetFile)] (parquet);
+
+        DROP TABLE Pedidos_Silver;
+
+    ENDIF
+
+NEXT vYear
+
+// ---------------------------------------------------------------------
+// 5. PedItem - no issues found, straight copy per year file
+// ---------------------------------------------------------------------
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vPedItemFile = '$(vBronzePath)PedItem_$(vYear).parquet';
+    CALL ProbeFileExists('$(vPedItemFile)');
+
+    IF vProbeExists > 0 THEN
+
+        LET vTargetFile = '$(vSilverPath)PedItem_$(vYear).parquet';
+
+        TRACE Transforming PedItem year $(vYear);
+
+        PedItem_Silver:
+        NOCONCATENATE
+        LOAD *
+        FROM [$(vPedItemFile)]
+        (parquet);
+
+        STORE PedItem_Silver INTO [$(vTargetFile)] (parquet);
+
+        DROP TABLE PedItem_Silver;
+
+    ENDIF
+
+NEXT vYear
+
+TRACE trf001_silver_vendasods completed;

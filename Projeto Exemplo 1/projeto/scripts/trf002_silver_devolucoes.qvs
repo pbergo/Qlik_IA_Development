@@ -1,0 +1,111 @@
+///////////////////////////////////////////////////////////////////////////
+// Script: trf002_silver_devolucoes
+// Purpose: Transform VendasODS Bronze layer Parquet files (S3, 'da-s3')
+//          for Devolucoes / Devolucao_Item into the Silver layer (Parquet,
+//          'da-s3'), applying the cleanup rules identified by the Bronze
+//          data quality assessment:
+//            - Devolucoes: Observacao is kept as-is (a constant/placeholder
+//              value in today's data, but kept rather than dropped -
+//              removing a field too early is expensive to undo later if it
+//              ever carries real information in future data).
+//            - Devolucao_Item: PrecoUN_Venda / Valor_Devolucao cast to a
+//              consistent numeric type (Num()) - the source alternates
+//              between INTEGER and DOUBLE depending on the year, the same
+//              class of issue already fixed for Vendedor_ID in trf001.
+// Tags: Transform, VendasODS
+// Layer: Silver (silver/silver001)
+///////////////////////////////////////////////////////////////////////////
+
+SET vSourceName = 'vendasods';
+SET vBronzePath = 'lib://VendasODS_Shared:da-s3/bronze/$(vSourceName)/';
+SET vSilverPath = 'lib://VendasODS_Shared:da-s3/silver/silver001/';
+LET vMinYear = Year(Today()) - 10;
+LET vMaxYear = Year(Today());
+
+// ---------------------------------------------------------------------
+// Reusable file-existence probe.
+// NOTE: FILELIST() is unreliable on this tenant/connector (it silently
+// returns zero matches even when the files exist), so year files are
+// discovered by probing a bounded year range with ErrorMode=0 + ScriptError
+// instead of enumerating a wildcard.
+// ---------------------------------------------------------------------
+SUB ProbeFileExists(vProbePath)
+    SET ErrorMode = 0;
+    ProbeCheckTable:
+    LOAD * FROM [$(vProbePath)] (parquet);
+    LET vProbeExists = If(ScriptError = '', 1, 0);
+    IF TableNumber('ProbeCheckTable') > 0 THEN
+        DROP TABLE ProbeCheckTable;
+    ENDIF
+    SET ErrorMode = 1;
+END SUB
+
+// ---------------------------------------------------------------------
+// 1. Devolucoes - passthrough (Observacao kept), per year
+// ---------------------------------------------------------------------
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vDevolucoesFile = '$(vBronzePath)Devolucoes_$(vYear).parquet';
+    CALL ProbeFileExists('$(vDevolucoesFile)');
+
+    IF vProbeExists > 0 THEN
+
+        LET vTargetFile = '$(vSilverPath)Devolucoes_$(vYear).parquet';
+
+        TRACE Transforming Devolucoes year $(vYear);
+
+        Devolucoes_Silver:
+        NOCONCATENATE
+        LOAD
+            Devolucao_ID,
+            Pedido_ID,
+            Data_Devolucao,
+            Observacao
+        FROM [$(vDevolucoesFile)]
+        (parquet);
+
+        STORE Devolucoes_Silver INTO [$(vTargetFile)] (parquet);
+
+        DROP TABLE Devolucoes_Silver;
+
+    ENDIF
+
+NEXT vYear
+
+// ---------------------------------------------------------------------
+// 2. Devolucao_Item - cast PrecoUN_Venda / Valor_Devolucao to numeric,
+//    per year
+// ---------------------------------------------------------------------
+FOR vYear = $(vMinYear) to $(vMaxYear)
+
+    LET vDevolucaoItemFile = '$(vBronzePath)Devolucao_Item_$(vYear).parquet';
+    CALL ProbeFileExists('$(vDevolucaoItemFile)');
+
+    IF vProbeExists > 0 THEN
+
+        LET vTargetFile = '$(vSilverPath)Devolucao_Item_$(vYear).parquet';
+
+        TRACE Transforming Devolucao_Item year $(vYear);
+
+        DevolucaoItem_Silver:
+        NOCONCATENATE
+        LOAD
+            Devolucao_Item_ID,
+            Devolucao_ID,
+            PedItem_ID,
+            Produto_ID,
+            Qtde_Devolvida,
+            Num(PrecoUN_Venda) as PrecoUN_Venda,
+            Num(Valor_Devolucao) as Valor_Devolucao
+        FROM [$(vDevolucaoItemFile)]
+        (parquet);
+
+        STORE DevolucaoItem_Silver INTO [$(vTargetFile)] (parquet);
+
+        DROP TABLE DevolucaoItem_Silver;
+
+    ENDIF
+
+NEXT vYear
+
+TRACE trf002_silver_devolucoes completed;
